@@ -1,0 +1,7 @@
+{
+  "name": "Dungeon Master IA",
+  "description": "Una aventura de Dungeons & Dragons para un solo jugador, basada en texto y dirigida por una IA. Crea tu personaje, explora un mundo de fantasía, lucha contra monstruos y forja tu propia leyenda, todo en español.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
