@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Character, Enemy, Ally, Settings } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { Character, Enemy, Ally, Settings, Skill } from '../types';
 import { useTypingEffect } from '../hooks/useTypingEffect';
-import Tooltip from './Tooltip';
+import * as audioService from '../services/audioService';
 import SettingsModal from './SettingsModal';
-import { generateSpeech } from '../services/geminiService';
-import { decode, decodeAudioData } from '../utils/audioUtils';
-import * as sound from '../services/audioService';
+import Tooltip from './Tooltip';
 import { IconSave, IconLoad, IconGear } from './Icons';
 
 interface GameUIProps {
@@ -23,199 +21,179 @@ interface GameUIProps {
     toastMessage: string | null;
 }
 
-const GameUI: React.FC<GameUIProps> = ({ character, enemy, party, storyLog, isLoading, isInCombat, onSendAction, settings, onSettingsChange, onManualSave, onManualLoad, toastMessage }) => {
-    const [input, setInput] = useState('');
-    const [showSettings, setShowSettings] = useState(false);
-    const storyLogRef = useRef<HTMLDivElement>(null);
-    const lastStoryText = storyLog[storyLog.length - 1] || '';
-    const { typedText } = useTypingEffect(lastStoryText.startsWith('>') ? '' : lastStoryText, settings.textSpeed);
+const StatBar: React.FC<{ value: number, maxValue: number, color: string, label: string }> = ({ value, maxValue, color, label }) => (
+    <div>
+        <div className="flex justify-between text-sm font-bold">
+            <span>{label}</span>
+            <span>{value} / {maxValue}</span>
+        </div>
+        <div className="w-full bg-gray-700 rounded-full h-4 border border-black/50">
+            <div className={`${color} h-full rounded-full transition-all duration-500`} style={{ width: `${(value / maxValue) * 100}%` }}></div>
+        </div>
+    </div>
+);
 
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+const GameUI: React.FC<GameUIProps> = ({
+    character,
+    enemy,
+    party,
+    storyLog,
+    isLoading,
+    isInCombat,
+    onSendAction,
+    settings,
+    onSettingsChange,
+    onManualSave,
+    onManualLoad,
+    toastMessage,
+}) => {
+    const [input, setInput] = useState('');
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const storyContainerRef = useRef<HTMLDivElement>(null);
+    const latestStoryText = storyLog[storyLog.length - 1] || '';
+    const { typedText } = useTypingEffect(latestStoryText, settings.textSpeed);
 
     useEffect(() => {
-        if (storyLogRef.current) {
-            storyLogRef.current.scrollTop = storyLogRef.current.scrollHeight;
+        if (storyContainerRef.current) {
+            storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
         }
     }, [typedText, storyLog]);
 
-    useEffect(() => {
-        if (settings.ttsEnabled && lastStoryText && !lastStoryText.startsWith('>') && !isLoading) {
-            const playNarration = async () => {
-                if (audioSourceRef.current) {
-                    audioSourceRef.current.stop();
-                }
-                const audioData = await generateSpeech(lastStoryText);
-                if (audioData) {
-                    if (!audioContextRef.current) {
-                        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-                    }
-                    const ctx = audioContextRef.current;
-                    if (ctx.state === 'suspended') {
-                       await ctx.resume();
-                    }
-                    const decoded = decode(audioData);
-                    const buffer = await decodeAudioData(decoded, ctx, 24000, 1);
-                    const source = ctx.createBufferSource();
-                    source.buffer = buffer;
-                    source.connect(ctx.destination);
-                    source.start();
-                    audioSourceRef.current = source;
-                }
-            };
-            playNarration();
-        }
-
-        return () => {
-            if (audioSourceRef.current) {
-                try {
-                   audioSourceRef.current.stop();
-                } catch(e) {}
-            }
-        };
-
-    }, [lastStoryText, settings.ttsEnabled, isLoading]);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSend = () => {
         if (input.trim() && !isLoading) {
             onSendAction(input.trim());
             setInput('');
+            audioService.playClick();
         }
     };
     
-    const handleActionClick = (action: string) => {
-        if (!isLoading) {
-           onSendAction(action);
-        }
-    };
-    
-    const getHealthColor = (hp: number, maxHp: number) => {
-        const percentage = (hp / maxHp) * 100;
-        if (percentage > 60) return 'bg-green-600';
-        if (percentage > 30) return 'bg-yellow-600';
-        return 'bg-red-600';
-    };
+    const handleSkillClick = (skill: Skill) => {
+        if (skill.currentCooldown > 0) return;
+        const action = `Uso mi habilidad: "${skill.name}". ${skill.description}`;
+        onSendAction(action);
+        // Note: The game logic in App.tsx and geminiService will need to be updated to handle skill cooldowns.
+        // For now, we just send the action.
+    }
 
-    const renderBar = (value: number, maxValue: number, colorClass: string) => (
-        <div className="w-full bg-gray-700 rounded-full h-4 border border-black/20 overflow-hidden relative">
-            <div className={`${colorClass} h-full rounded-full transition-all duration-500`} style={{ width: `${Math.max(0, (value / maxValue)) * 100}%` }}></div>
-             <span className="absolute inset-0 text-center text-xs font-bold text-white leading-4" style={{textShadow: '1px 1px 2px black'}}>{value} / {maxValue}</span>
+    const renderParty = () => (
+        <div className="space-y-2">
+            <h3 className="text-lg font-bold text-yellow-400 border-b border-yellow-400/30 mb-2">Grupo</h3>
+            {party.map(ally => (
+                <div key={ally.name} className="bg-gray-800/50 p-2 rounded">
+                    <p className="font-bold">{ally.name}</p>
+                    <StatBar value={ally.hp} maxValue={ally.maxHp} color="bg-green-500" label="PS" />
+                </div>
+            ))}
         </div>
     );
     
-    const ActionButton: React.FC<{action: () => void, text: string, tooltip: string, soundEffect: () => void, disabled?: boolean}> = ({action, text, tooltip, soundEffect, disabled=false}) => (
-        <Tooltip text={tooltip}>
-            <button
-                onClick={() => { action(); soundEffect(); }}
-                disabled={isLoading || disabled}
-                className="flex-1 py-2 px-4 bg-gray-700 hover:bg-yellow-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed rounded-md transition-colors text-white font-semibold"
-            >
-                {text}
-            </button>
-        </Tooltip>
-    );
-
     return (
-        <div className="relative flex flex-col h-screen bg-gray-900 text-white font-body" style={{ backgroundImage: 'url(https://www.transparenttextures.com/patterns/dark-denim-3.png)' }}>
-            {toastMessage && (
-                <div className="absolute top-5 left-1/2 -translate-x-1/2 bg-yellow-500 text-gray-900 font-bold px-6 py-2 rounded-lg shadow-lg z-50 animate-fadeIn">
-                    {toastMessage}
+        <div className="flex flex-col md:flex-row h-screen bg-gray-900 text-gray-200 font-serif">
+            {/* Left Panel - Character & Party */}
+            <aside className="w-full md:w-1/4 bg-gray-900/80 backdrop-blur-sm p-4 border-r-2 border-yellow-500/30 flex flex-col space-y-4 overflow-y-auto">
+                <div>
+                    <h2 className="text-3xl font-bold text-yellow-400 font-title">{character.name}</h2>
+                    <p className="text-gray-400">{character.race} {character.characterClass} - Nivel {character.level}</p>
                 </div>
-            )}
-
-            {showSettings && <SettingsModal settings={settings} onClose={() => setShowSettings(false)} onSettingsChange={onSettingsChange} />}
-            
-            <header className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-black/30 shadow-lg border-b border-yellow-400/20">
-                <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                    <h3 className="text-xl font-bold text-yellow-400">{character.name} <span className="text-sm text-gray-400">Nvl {character.level} ({character.xp}/{character.xpToNextLevel} XP)</span></h3>
-                    <p className="text-sm text-gray-300">{character.race} {character.characterClass}</p>
-                    <div className="mt-2">{renderBar(character.hp, character.maxHp, getHealthColor(character.hp, character.maxHp))}</div>
-                    <div className="mt-1">{renderBar(character.mp, character.maxMp, 'bg-blue-600')}</div>
-                </div>
-
-                <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                     <h3 className="text-xl font-bold text-center text-yellow-400 mb-2">Grupo</h3>
-                     {party.length > 0 ? party.map(ally => (
-                         <div key={ally.name} className="mt-1">
-                             <span className="text-sm">{ally.name} ({ally.characterClass})</span>
-                              <div className="">{renderBar(ally.hp, ally.maxHp, getHealthColor(ally.hp, ally.maxHp))}</div>
-                         </div>
-                     )) : <p className="text-center text-gray-500">Estás solo.</p>}
-                </div>
-
-                <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                    {enemy && isInCombat ? (
-                        <>
-                           <h3 className="text-xl font-bold text-red-500">{enemy.name}</h3>
-                           <p className="text-sm text-gray-400 italic h-10 overflow-y-auto">{enemy.description}</p>
-                           <div className="mt-2">{renderBar(enemy.hp, enemy.maxHp, getHealthColor(enemy.hp, enemy.maxHp))}</div>
-                        </>
-                    ) : (
-                        <div className="flex items-center justify-center h-full">
-                           <p className="text-gray-500">Todo tranquilo...</p>
+                <div className="space-y-3">
+                    <StatBar value={character.hp} maxValue={character.maxHp} color="bg-red-600" label="PS" />
+                    <StatBar value={character.mp} maxValue={character.maxMp} color="bg-blue-600" label="PM" />
+                    <div>
+                         <div className="flex justify-between text-sm font-bold">
+                            <span>XP</span>
+                            <span>{character.xp} / {character.xpToNextLevel}</span>
                         </div>
-                    )}
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                            <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${(character.xp / character.xpToNextLevel) * 100}%` }}></div>
+                        </div>
+                    </div>
                 </div>
 
-                 <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex items-center justify-center gap-4">
-                    <Tooltip text="Guardar Partida">
-                        <button onClick={() => { onManualSave(); sound.playClick(); }} className="p-3 bg-gray-700 rounded-full hover:bg-yellow-600 transition-colors">
-                            <IconSave className="w-6 h-6" />
-                        </button>
-                    </Tooltip>
-                     <Tooltip text="Cargar Partida">
-                        <button onClick={() => { onManualLoad(); sound.playClick(); }} className="p-3 bg-gray-700 rounded-full hover:bg-yellow-600 transition-colors">
-                            <IconLoad className="w-6 h-6" />
-                        </button>
-                    </Tooltip>
-                     <Tooltip text="Ajustes">
-                        <button onClick={() => { setShowSettings(true); sound.playClick(); }} className="p-3 bg-gray-700 rounded-full hover:bg-yellow-600 transition-colors">
-                            <IconGear className="w-6 h-6" />
-                        </button>
-                    </Tooltip>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="bg-gray-800 p-2 rounded">
+                        <p className="font-bold text-lg">{character.attackBonus}</p>
+                        <p className="text-sm text-gray-400">Ataque</p>
+                    </div>
+                    <div className="bg-gray-800 p-2 rounded">
+                        <p className="font-bold text-lg">{character.armorClass}</p>
+                        <p className="text-sm text-gray-400">Armadura</p>
+                    </div>
                 </div>
-            </header>
 
-            <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 overflow-hidden">
-                <div ref={storyLogRef} className="lg:col-span-3 bg-black/50 p-4 rounded-lg border border-gray-700 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                    {storyLog.slice(0, -1).map((text, index) => (
-                         <p key={index} className={`mb-4 ${text.startsWith('>') ? 'text-yellow-300 italic' : 'text-gray-300'}`}>{text.startsWith('>') ? text : <span dangerouslySetInnerHTML={{__html: text.replace(/\n/g, '<br />')}} />}</p>
+                {/* Skills */}
+                <div>
+                    <h3 className="text-lg font-bold text-yellow-400 border-b border-yellow-400/30 mb-2">Habilidades</h3>
+                    <div className="grid grid-cols-4 gap-2">
+                        {character.skills.map(skill => (
+                           <Tooltip key={skill.name} text={`${skill.name}: ${skill.description} (Enfriamiento: ${skill.cooldown})`}>
+                                <button 
+                                    onClick={() => handleSkillClick(skill)}
+                                    disabled={skill.currentCooldown > 0}
+                                    className={`w-12 h-12 flex items-center justify-center rounded-lg border-2 transition-colors ${skill.currentCooldown > 0 ? 'bg-gray-700 border-gray-600 cursor-not-allowed' : 'bg-gray-800 border-gray-700 hover:border-yellow-500'}`}
+                                >
+                                    <div className="w-8 h-8">{skill.icon}</div>
+                                    {skill.currentCooldown > 0 && <div className="absolute text-lg font-bold">{skill.currentCooldown}</div>}
+                                </button>
+                           </Tooltip>
+                        ))}
+                    </div>
+                </div>
+
+                {party.length > 0 && renderParty()}
+                
+                <div className="!mt-auto pt-4 space-y-2">
+                    <div className="flex space-x-2">
+                         <button onClick={() => setIsSettingsOpen(true)} className="w-full flex items-center justify-center py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"><IconGear className="w-6 h-6"/></button>
+                         <button onClick={onManualSave} className="w-full flex items-center justify-center py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"><IconSave className="w-6 h-6"/></button>
+                         <button onClick={onManualLoad} className="w-full flex items-center justify-center py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"><IconLoad className="w-6 h-6"/></button>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Panel - Story & Input */}
+            <main className="w-full md:w-3/4 flex flex-col p-4 relative">
+                 {enemy && isInCombat && (
+                    <div className="absolute top-4 right-4 w-64 bg-red-900/50 backdrop-blur-sm border-2 border-red-500/50 p-4 rounded-lg animate-fadeIn">
+                        <h3 className="text-2xl font-bold text-red-400">{enemy.name}</h3>
+                        <p className="text-sm italic mb-2">{enemy.description}</p>
+                        <StatBar value={enemy.hp} maxValue={enemy.maxHp} color="bg-red-500" label="PS" />
+                    </div>
+                 )}
+
+                <div ref={storyContainerRef} className="flex-grow overflow-y-auto mb-4 bg-black/30 p-4 rounded-lg border border-gray-700/50">
+                     {storyLog.slice(0, -1).map((text, index) => (
+                        <p key={index} className="mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: text.startsWith('>') ? `<em class="text-yellow-300">${text}</em>` : text }} />
                     ))}
-                     <p className={`mb-4 ${lastStoryText.startsWith('>') ? 'text-yellow-300 italic' : 'text-gray-300'}`}>{lastStoryText.startsWith('>') ? typedText : <span dangerouslySetInnerHTML={{__html: typedText.replace(/\n/g, '<br />')}} />}</p>
-                    {isLoading && <div className="animate-pulse text-yellow-400">El Dungeon Master está pensando...</div>}
+                    {typedText && <p className="mb-4 whitespace-pre-wrap">{typedText}</p>}
                 </div>
-
-                <div className="flex flex-col gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                    <h3 className="text-xl font-bold text-center text-yellow-400">Acciones de Combate</h3>
-                     <div className="flex flex-col gap-2">
-                         <ActionButton action={() => handleActionClick(`Ataco a ${enemy?.name} con mi arma.`)} text="Atacar" tooltip={`Descripción: Un ataque básico con tu arma. | Tirada de Ataque: 1d20 + ${character.attackBonus}`} soundEffect={sound.playAttack} disabled={!isInCombat}/>
-                        
-                        {character.spells.map(spell => (
-                            <ActionButton key={spell.name} action={() => handleActionClick(`Lanzo ${spell.name} a ${enemy?.name || 'un objetivo'}.`)} text={spell.name} tooltip={`Descripción: ${spell.description} | Coste: ${spell.cost} PM`} soundEffect={sound.playSpell} disabled={!isInCombat || character.mp < spell.cost}/>
-                        ))}
-                         {character.skills.map(skill => (
-                            <ActionButton key={skill.name} action={() => handleActionClick(`Uso mi habilidad ${skill.name}.`)} text={skill.name} tooltip={`Descripción: ${skill.description} | Enfriamiento: ${skill.cooldown} turnos`} soundEffect={sound.playHeal} disabled={!isInCombat}/>
-                        ))}
-                     </div>
-                </div>
-            </main>
-
-            <footer className="p-4 bg-black/30 shadow-inner border-t border-yellow-400/20">
-                <form onSubmit={handleSubmit} className="flex gap-4">
+                
+                <div className="flex space-x-2">
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="¿Qué haces?"
+                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                        placeholder={isLoading ? "El Dungeon Master está pensando..." : "Escribe tu acción..."}
+                        className="flex-grow p-4 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500"
                         disabled={isLoading}
-                        className="flex-1 p-3 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-900"
                     />
-                    <button type="submit" disabled={isLoading} className="px-6 py-3 bg-yellow-600 text-gray-900 font-bold rounded-lg shadow-lg hover:bg-yellow-500 transition-colors disabled:bg-yellow-800 disabled:text-gray-500">
-                        Enviar
+                    <button
+                        onClick={handleSend}
+                        disabled={isLoading}
+                        className="px-8 py-4 bg-yellow-600 text-gray-900 font-bold rounded-lg hover:bg-yellow-500 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? '...' : 'Enviar'}
                     </button>
-                </form>
-            </footer>
+                </div>
+            </main>
+
+            {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onSettingsChange={onSettingsChange} />}
+
+            {toastMessage && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white py-2 px-6 rounded-lg shadow-lg animate-fadeIn" >
+                    {toastMessage}
+                </div>
+            )}
         </div>
     );
 };

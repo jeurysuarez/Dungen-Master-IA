@@ -1,6 +1,7 @@
 import React from 'react';
-import { Race, CharacterClass } from './types';
-import { IconSword, IconScroll, IconDagger, IconCross } from './components/Icons';
+import { Race, CharacterClass, Skill } from './types';
+// Fix: Imported IconGear to resolve 'Cannot find name' error.
+import { IconSword, IconScroll, IconDagger, IconCross, IconHeart, IconLeaf, IconAnvil, IconFootprint, IconDragon, IconBrain, IconHandshake, IconAxe, IconFire, IconGear } from './components/Icons';
 
 export const RACE_DESCRIPTIONS: { [key in Race]: string } = {
     [Race.Humano]: "Versátiles y ambiciosos, los humanos se adaptan a cualquier desafío. Su tenacidad es su mayor fortaleza.",
@@ -41,4 +42,43 @@ export const CLASS_ICONS: { [key in CharacterClass]: React.ReactNode } = {
     [CharacterClass.Mago]: <IconScroll />,
     [CharacterClass.Picaro]: <IconDagger />,
     [CharacterClass.Clerigo]: <IconCross />,
+};
+
+export const RACE_SKILL_POOLS: { [key in Race]: Skill[] } = {
+    [Race.Humano]: [
+        { name: 'Coraje Humano', description: 'Gana un bono de ataque temporal en tu próximo turno.', cooldown: 5, currentCooldown: 0, icon: <IconHeart /> },
+        { name: 'Ingenio Rápido', description: 'Reduce el enfriamiento de otra habilidad en 1 turno.', cooldown: 6, currentCooldown: 0, icon: <IconBrain /> },
+    ],
+    [Race.Elfo]: [
+        { name: 'Visión Aguda', description: 'Tu próximo ataque tiene una probabilidad de acierto mucho mayor.', cooldown: 4, currentCooldown: 0, icon: <IconLeaf /> },
+        { name: 'Paso Silencioso', description: 'Aumenta tu evasión durante un turno.', cooldown: 5, currentCooldown: 0, icon: <IconFootprint /> },
+    ],
+    [Race.Enano]: [
+        { name: 'Piel de Piedra', description: 'Aumenta tu Clase de Armadura durante 2 turnos.', cooldown: 6, currentCooldown: 0, icon: <IconAnvil /> },
+        { name: 'Resistencia Enana', description: 'Reduce a la mitad el daño del próximo golpe que recibas.', cooldown: 5, currentCooldown: 0, icon: <IconHeart /> },
+    ],
+    [Race.Mediano]: [
+        { name: 'Suerte del Mediano', description: 'Tu próximo ataque que falle, acertará en su lugar.', cooldown: 7, currentCooldown: 0, icon: <IconFootprint /> },
+        { name: 'Lanzamiento Certero', description: 'Lanza una piedra con gran precisión, interrumpiendo al enemigo.', cooldown: 4, currentCooldown: 0, icon: <IconDagger /> },
+    ],
+    [Race.Draconido]: [
+        { name: 'Aliento de Dragón', description: 'Exhalas un cono de energía que daña al enemigo.', cooldown: 5, currentCooldown: 0, icon: <IconDragon /> },
+        { name: 'Presencia Aterradora', description: 'Reduce el bono de ataque del enemigo durante 2 turnos.', cooldown: 6, currentCooldown: 0, icon: <IconFire /> },
+    ],
+    [Race.Gnomo]: [
+        { name: 'Artilugio Ingenioso', description: 'Despliegas un artilugio que distrae al enemigo, reduciendo su CA.', cooldown: 5, currentCooldown: 0, icon: <IconGear /> },
+        { name: 'Escape Veloz', description: 'Esquivas el próximo ataque enemigo por completo.', cooldown: 6, currentCooldown: 0, icon: <IconFootprint /> },
+    ],
+    [Race.Semielfo]: [
+        { name: 'Encanto Feérico', description: 'El enemigo tiene una probabilidad de no atacarte en su próximo turno.', cooldown: 6, currentCooldown: 0, icon: <IconHandshake /> },
+        { name: 'Linaje Versátil', description: 'Copia temporalmente la defensa de tu oponente.', cooldown: 7, currentCooldown: 0, icon: <IconBrain /> },
+    ],
+    [Race.Semiorco]: [
+        { name: 'Ataque Salvaje', description: 'Tu próximo ataque inflige daño adicional.', cooldown: 4, currentCooldown: 0, icon: <IconAxe /> },
+        { name: 'Resistencia Implacable', description: 'Si un golpe te dejara a 0 PS, sobrevives con 1 PS.', cooldown: 8, currentCooldown: 0, icon: <IconHeart /> },
+    ],
+    [Race.Tiflin]: [
+        { name: 'Engaño Infernal', description: 'Creas una ilusión que reduce la probabilidad de acierto del enemigo.', cooldown: 5, currentCooldown: 0, icon: <IconFire /> },
+        { name: 'Reprensión Diabólica', description: 'Devuelves parte del daño recibido al atacante.', cooldown: 6, currentCooldown: 0, icon: <IconScroll /> },
+    ],
 };

@@ -1,179 +1,130 @@
-import React, { useState } from 'react';
-import { Race, CharacterClass, Character, Spell, Skill } from '../types';
-import { RACE_DESCRIPTIONS, RACE_IMAGES, CLASS_DESCRIPTIONS, CLASS_ICONS } from '../constants';
-import Tooltip from './Tooltip';
-import { IconSword, IconDagger } from './Icons';
+import React, { useState, useMemo } from 'react';
+import { Character, Race, CharacterClass } from '../types';
+import { RACE_DESCRIPTIONS, CLASS_DESCRIPTIONS, RACE_IMAGES, CLASS_ICONS, RACE_SKILL_POOLS } from '../constants';
 
 interface CharacterCreationProps {
   onCharacterCreate: (character: Character) => void;
 }
 
 const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate }) => {
-  const [name, setName] = useState('');
-  const [selectedRace, setSelectedRace] = useState<Race>(Race.Humano);
-  const [selectedClass, setSelectedClass] = useState<CharacterClass>(CharacterClass.Guerrero);
-  const [error, setError] = useState('');
+    const [name, setName] = useState('');
+    const [selectedRace, setSelectedRace] = useState<Race>(Race.Humano);
+    const [selectedClass, setSelectedClass] = useState<CharacterClass>(CharacterClass.Guerrero);
+    const [step, setStep] = useState(1);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError('Por favor, introduce un nombre para tu personaje.');
-      return;
-    }
-    setError('');
+    const selectedSkills = useMemo(() => RACE_SKILL_POOLS[selectedRace], [selectedRace]);
 
-    // Define base stats and items/skills/spells based on class
-    let newCharacter: Character;
-    const baseSkills: Skill[] = [];
-    const baseSpells: Spell[] = [];
+    const handleCreateCharacter = () => {
+        if (!name.trim()) {
+            alert('Por favor, introduce un nombre para tu personaje.');
+            return;
+        }
 
-    switch (selectedClass) {
-        case CharacterClass.Guerrero:
-            baseSkills.push({ name: 'Ataque Poderoso', description: 'Un ataque cuerpo a cuerpo que inflige daño adicional.', cooldown: 3, currentCooldown: 0, icon: <IconSword /> });
-            newCharacter = {
-                name,
-                race: selectedRace,
-                characterClass: selectedClass,
-                level: 1,
-                xp: 0,
-                xpToNextLevel: 100,
-                hp: 12, maxHp: 12,
-                mp: 0, maxMp: 0,
-                attackBonus: 3,
-                armorClass: 14,
-                inventory: [{ name: 'Espada Larga', quantity: 1 }, { name: 'Poción de Curación', quantity: 1 }],
-                spells: baseSpells,
-                skills: baseSkills,
-            };
-            break;
-        case CharacterClass.Mago:
-            baseSpells.push({ name: 'Bola de Fuego', cost: 5, description: 'Lanza una bola de fuego que explota al impactar.' });
-            newCharacter = {
-                name,
-                race: selectedRace,
-                characterClass: selectedClass,
-                level: 1,
-                xp: 0,
-                xpToNextLevel: 100,
-                hp: 6, maxHp: 6,
-                mp: 15, maxMp: 15,
-                attackBonus: 1,
-                armorClass: 10,
-                inventory: [{ name: 'Báculo de Mago', quantity: 1 }, { name: 'Poción de Maná', quantity: 1 }],
-                spells: baseSpells,
-                skills: baseSkills,
-            };
-            break;
-        case CharacterClass.Picaro:
-            baseSkills.push({ name: 'Ataque Furtivo', description: 'Un ataque preciso desde las sombras que ignora parte de la armadura del enemigo.', cooldown: 2, currentCooldown: 0, icon: <IconDagger /> });
-            newCharacter = {
-                name,
-                race: selectedRace,
-                characterClass: selectedClass,
-                level: 1,
-                xp: 0,
-                xpToNextLevel: 100,
-                hp: 8, maxHp: 8,
-                mp: 5, maxMp: 5,
-                attackBonus: 2,
-                armorClass: 12,
-                inventory: [{ name: 'Daga', quantity: 2 }, { name: 'Herramientas de Ladrón', quantity: 1 }],
-                spells: baseSpells,
-                skills: baseSkills,
-            };
-            break;
-        case CharacterClass.Clerigo:
-             baseSpells.push({ name: 'Curar Heridas Leves', cost: 4, description: 'Restaura una pequeña cantidad de puntos de salud.' });
-             newCharacter = {
-                name,
-                race: selectedRace,
-                characterClass: selectedClass,
-                level: 1,
-                xp: 0,
-                xpToNextLevel: 100,
-                hp: 10, maxHp: 10,
-                mp: 10, maxMp: 10,
-                attackBonus: 2,
-                armorClass: 13,
-                inventory: [{ name: 'Maza', quantity: 1 }, { name: 'Símbolo Sagrado', quantity: 1 }],
-                spells: baseSpells,
-                skills: baseSkills,
-            };
-            break;
-        default:
-            throw new Error('Clase de personaje no válida');
-    }
-    
-    onCharacterCreate(newCharacter);
-  };
+        const newCharacter: Character = {
+            name: name.trim(),
+            race: selectedRace,
+            characterClass: selectedClass,
+            level: 1,
+            xp: 0,
+            xpToNextLevel: 100,
+            hp: 100,
+            maxHp: 100,
+            mp: 50,
+            maxMp: 50,
+            attackBonus: 5,
+            armorClass: 15,
+            inventory: [{ name: 'Poción de Vida', quantity: 2, description: 'Restaura 20 PS.' }],
+            spells: [],
+            skills: selectedSkills,
+        };
 
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4 font-body" style={{ backgroundImage: 'url(https://www.transparenttextures.com/patterns/dark-denim-3.png)' }}>
-      <div className="w-full max-w-4xl bg-black/50 p-8 rounded-xl shadow-2xl border border-yellow-400/20 animate-fadeIn">
-        <h1 className="text-5xl font-title text-yellow-400 mb-6 text-center">Crea tu Héroe</h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Name Input */}
-          <div>
-            <label htmlFor="name" className="block text-xl mb-2 font-semibold text-gray-300">Nombre</label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Escribe el nombre de tu personaje"
-              className="w-full p-3 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 text-lg"
-            />
-             {error && <p className="text-red-500 mt-2">{error}</p>}
-          </div>
+        onCharacterCreate(newCharacter);
+    };
 
-          {/* Race Selection */}
-          <div>
-            <h2 className="text-xl mb-4 font-semibold text-gray-300">Raza: <span className="text-yellow-400">{selectedRace}</span></h2>
-            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-4">
-              {Object.values(Race).map((race) => (
-                <Tooltip key={race} text={RACE_DESCRIPTIONS[race]}>
-                  <div
-                    onClick={() => setSelectedRace(race)}
-                    className={`cursor-pointer transition-all duration-300 transform hover:scale-105 rounded-lg overflow-hidden border-2 bg-gray-800/50 p-2 flex items-center justify-center
-                      ${selectedRace === race ? 'border-yellow-400 shadow-lg shadow-yellow-400/30' : 'border-gray-700 hover:border-yellow-600'}`}
-                  >
-                    <img src={RACE_IMAGES[race]} alt={race} className="w-20 h-24 object-contain" />
-                  </div>
-                </Tooltip>
-              ))}
+    const renderStep = () => {
+        switch (step) {
+            case 1: // Race selection
+                return (
+                    <div className="animate-fadeIn">
+                        <h2 className="text-3xl font-bold text-yellow-400 mb-6 text-center">Elige tu Raza</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {Object.values(Race).map((race) => (
+                                <button
+                                    key={race}
+                                    onClick={() => setSelectedRace(race)}
+                                    className={`p-4 rounded-lg border-2 transition-all duration-200 ${selectedRace === race ? 'bg-yellow-600/30 border-yellow-500' : 'bg-gray-800 border-gray-700 hover:border-yellow-500'}`}
+                                >
+                                    <h3 className="text-xl font-bold">{race}</h3>
+                                </button>
+                            ))}
+                        </div>
+                         <div className="mt-6 p-4 bg-gray-800 rounded-lg text-center">
+                            <img src={RACE_IMAGES[selectedRace]} alt={selectedRace} className="w-24 h-24 mx-auto rounded-full mb-4 border-2 border-gray-600"/>
+                            <p>{RACE_DESCRIPTIONS[selectedRace]}</p>
+                        </div>
+                        <button onClick={() => setStep(2)} className="w-full mt-6 py-3 bg-yellow-600 text-gray-900 font-bold rounded-lg hover:bg-yellow-500 transition-colors text-xl">Siguiente</button>
+                    </div>
+                );
+            case 2: // Class selection
+                return (
+                    <div className="animate-fadeIn">
+                        <h2 className="text-3xl font-bold text-yellow-400 mb-6 text-center">Elige tu Clase</h2>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {Object.values(CharacterClass).map((charClass) => (
+                                <button
+                                    key={charClass}
+                                    onClick={() => setSelectedClass(charClass)}
+                                    className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center transition-all duration-200 ${selectedClass === charClass ? 'bg-yellow-600/30 border-yellow-500' : 'bg-gray-800 border-gray-700 hover:border-yellow-500'}`}
+                                >
+                                    <div className="w-12 h-12 mb-2">{CLASS_ICONS[charClass]}</div>
+                                    <h3 className="text-lg font-bold">{charClass}</h3>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="mt-6 p-4 bg-gray-800 rounded-lg text-center">
+                            <p>{CLASS_DESCRIPTIONS[selectedClass]}</p>
+                        </div>
+                        <div className="flex justify-between mt-6">
+                            <button onClick={() => setStep(1)} className="w-1/2 mr-2 py-3 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors text-xl">Anterior</button>
+                            <button onClick={() => setStep(3)} className="w-1/2 ml-2 py-3 bg-yellow-600 text-gray-900 font-bold rounded-lg hover:bg-yellow-500 transition-colors text-xl">Siguiente</button>
+                        </div>
+                    </div>
+                );
+            case 3: // Name and finalization
+                return (
+                    <div className="animate-fadeIn">
+                        <h2 className="text-3xl font-bold text-yellow-400 mb-6 text-center">Nombra a tu Héroe</h2>
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Escribe el nombre de tu personaje"
+                            className="w-full p-4 bg-gray-800 border-2 border-gray-700 rounded-lg text-white focus:outline-none focus:border-yellow-500 text-center text-xl"
+                        />
+                         <div className="mt-6 p-4 bg-gray-800 rounded-lg text-center text-gray-300">
+                           <p>Has elegido ser un <span className="font-bold text-white">{selectedRace}</span> <span className="font-bold text-white">{selectedClass}</span>.</p>
+                           <p className="mt-2">Tus habilidades raciales son: {selectedSkills.map(s => s.name).join(', ')}.</p>
+                        </div>
+                        <div className="flex justify-between mt-6">
+                            <button onClick={() => setStep(2)} className="w-1/2 mr-2 py-3 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors text-xl">Anterior</button>
+                            <button onClick={handleCreateCharacter} className="w-1/2 ml-2 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-500 transition-colors text-xl">Comenzar Aventura</button>
+                        </div>
+                    </div>
+                );
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4 font-serif">
+            <div className="w-full max-w-2xl bg-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl border-2 border-yellow-500/50 p-8">
+                 <h1 className="text-4xl font-bold text-center text-yellow-400 mb-2 font-title">Creación de Personaje</h1>
+                 <div className="w-full bg-gray-700 rounded-full h-1.5 mb-6">
+                    <div className="bg-yellow-500 h-1.5 rounded-full" style={{ width: `${(step / 3) * 100}%` }}></div>
+                </div>
+                {renderStep()}
             </div>
-          </div>
-
-          {/* Class Selection */}
-          <div>
-            <h2 className="text-xl mb-4 font-semibold text-gray-300">Clase: <span className="text-yellow-400">{selectedClass}</span></h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.values(CharacterClass).map((charClass) => (
-                 <div
-                    key={charClass}
-                    onClick={() => setSelectedClass(charClass)}
-                    className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-300 flex flex-col items-center gap-2
-                      ${selectedClass === charClass ? 'bg-yellow-600/20 border-yellow-500' : 'bg-gray-800/50 border-gray-700 hover:border-yellow-600'}`}
-                  >
-                    <div className="text-yellow-400">{CLASS_ICONS[charClass]}</div>
-                    <h3 className="font-bold text-lg">{charClass}</h3>
-                    <p className="text-xs text-center text-gray-400">{CLASS_DESCRIPTIONS[charClass]}</p>
-                  </div>
-              ))}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full px-8 py-4 bg-yellow-600 text-gray-900 font-bold rounded-lg shadow-lg hover:bg-yellow-500 transition-colors duration-300 text-2xl"
-          >
-            Comenzar Aventura
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default CharacterCreation;

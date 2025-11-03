@@ -3,7 +3,7 @@ import TitleScreen from './components/TitleScreen';
 import CharacterCreation from './components/CharacterCreation';
 import GameUI from './components/GameUI';
 import { GameState, Character, SavedGame, Settings, DMResponse, Enemy, Ally, Item } from './types';
-import { startNewAdventure, sendMessageToDM } from './services/geminiService';
+import { sendMessageToDM } from './services/geminiService';
 import * as audioService from './services/audioService';
 
 const SAVE_GAME_KEY = 'dungeon-master-ia-savegame';
@@ -73,7 +73,6 @@ const App: React.FC = () => {
             setEnemy(gameData.enemy);
             setParty(gameData.party);
             setSettings(gameData.settings);
-            startNewAdventure(gameData.character, gameData.party, gameData.enemy, gameData.storyLog);
             setGameState(GameState.PLAYING);
             showToast("Partida cargada.");
         } else {
@@ -106,8 +105,6 @@ const App: React.FC = () => {
         setEnemy(null);
         setParty([]);
         setGameState(GameState.PLAYING);
-        
-        startNewAdventure(newCharacter, [], null, initialLog);
         
         handleSendAction("Comienza la aventura. Describe la escena inicial.");
     };
