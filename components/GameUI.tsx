@@ -1,7 +1,9 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { Character, Ally, Enemy } from '../types';
-import { IconSoundOn, IconSoundOff } from './Icons';
+import { IconSoundOn, IconSoundOff, IconSword, IconMagic, IconSkill, IconItem } from './Icons';
+import Tooltip from './Tooltip';
+
 
 // Sub-components are defined in this file to keep related UI logic together.
 // They are defined outside the main component to prevent re-renders.
@@ -101,10 +103,11 @@ const PartySheet: React.FC<PartySheetProps> = ({ party }) => {
 interface EnemySheetProps {
     enemy: Enemy;
     isHit: boolean;
+    isInCombat: boolean;
 }
-const EnemySheet: React.FC<EnemySheetProps> = ({ enemy, isHit }) => (
-    <div className={`p-4 bg-gray-800/50 rounded-lg border border-red-500/40 ${isHit ? 'animate-shake' : ''}`}>
-        <h3 className="font-title text-2xl text-red-400">{enemy.name}</h3>
+const EnemySheet: React.FC<EnemySheetProps> = ({ enemy, isHit, isInCombat }) => (
+    <div className={`p-4 bg-gray-800/50 rounded-lg border-2 transition-all ${isHit ? 'animate-shake border-red-500' : 'border-red-500/40'} ${isInCombat ? 'animate-pulseRed' : ''}`}>
+        <h3 className="font-title text-3xl text-red-400">{enemy.name}</h3>
         <div className="space-y-3 mt-2">
             <StatBar value={enemy.hp} maxValue={enemy.maxHp} color="bg-red-600" label="PS" />
         </div>
@@ -158,9 +161,6 @@ const PlayerActions: React.FC<PlayerActionsProps> = ({ onAction, isLoading }) =>
     );
 };
 
-// ... other sub-components for combat actions, magic, etc. could go here ...
-// For simplicity, they are integrated within the main GameUI component for now.
-
 interface GameUIProps {
     character: Character;
     party: Ally[];
@@ -186,7 +186,7 @@ const GameUI: React.FC<GameUIProps> = (props) => {
         onAction, onCombatAction, ttsEnabled, toggleTts
     } = props;
     
-    const [activeCombatMenu, setActiveCombatMenu] = useState<'main' | 'magic' | 'skills' | 'items' | 'party'>('main');
+    const [activeCombatMenu, setActiveCombatMenu] = useState<'main' | 'magic' | 'skills' | 'items'>('main');
     
     useEffect(() => {
         if (isInCombat) {
@@ -195,46 +195,62 @@ const GameUI: React.FC<GameUIProps> = (props) => {
     }, [isInCombat]);
 
     const renderCombatActions = () => {
+        const ActionButton: React.FC<{icon: React.ReactNode, label: string, onClick: () => void, disabled?: boolean, color: string}> = ({ icon, label, onClick, disabled = false, color }) => (
+            <button 
+                onClick={onClick} 
+                disabled={disabled} 
+                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg font-title text-lg transition-all duration-200 ${disabled ? 'bg-gray-700/50 text-gray-500 cursor-not-allowed' : `${color} hover:scale-105 shadow-lg hover:shadow-xl`}`}
+            >
+                {icon}
+                <span>{label}</span>
+            </button>
+        );
+
         switch(activeCombatMenu) {
             case 'magic':
                 return (
-                    <>
-                        <div className="grid grid-cols-2 gap-2">
+                    <div className="animate-fadeIn">
+                        <h3 className="text-center text-lg font-title text-blue-300 mb-2">Hechizos</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                          {character.spells.length > 0 ? character.spells.map(spell => (
-                            <button key={spell.name} disabled={isLoading || character.mp < spell.cost} onClick={() => onCombatAction('magic', spell)}
-                                className="p-2 bg-blue-800/80 rounded hover:bg-blue-700 disabled:bg-gray-600">
-                                {spell.name} ({spell.cost} PM)
-                            </button>
-                         )) : <p className="col-span-2 text-center text-gray-400">No conoces hechizos.</p>}
+                            <Tooltip key={spell.name} text={`${spell.description}`}>
+                                <button disabled={isLoading || character.mp < spell.cost} onClick={() => onCombatAction('magic', spell)}
+                                    className="p-2 text-center bg-blue-800/80 rounded hover:bg-blue-700 disabled:bg-gray-600/50 disabled:text-gray-400">
+                                    <p className="font-semibold">{spell.name}</p>
+                                    <p className="text-xs text-blue-200">{spell.cost} PM</p>
+                                </button>
+                            </Tooltip>
+                         )) : <p className="col-span-full text-center text-gray-400">No conoces hechizos.</p>}
                         </div>
-                        <button onClick={() => setActiveCombatMenu('main')} className="mt-2 w-full p-2 bg-gray-600 rounded">Volver</button>
-                    </>
+                        <button onClick={() => setActiveCombatMenu('main')} className="mt-3 w-full p-2 bg-gray-600 hover:bg-gray-500 rounded text-sm">Volver</button>
+                    </div>
                 );
             case 'skills':
                  return (
-                    <>
-                        <div className="grid grid-cols-2 gap-2">
+                    <div className="animate-fadeIn">
+                        <h3 className="text-center text-lg font-title text-purple-300 mb-2">Habilidades</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                          {character.skills.length > 0 ? character.skills.map(skill => (
-                            <button key={skill.name} disabled={isLoading || skill.currentCooldown > 0} onClick={() => onCombatAction('skill', skill)}
-                                className="p-2 bg-purple-800/80 rounded hover:bg-purple-700 disabled:bg-gray-600 flex flex-col items-center">
-                                {skill.icon}
-                                <span>{skill.name}</span>
-                                <span className="text-xs">{skill.currentCooldown > 0 ? `Enfriamiento: ${skill.currentCooldown}` : 'Listo'}</span>
-                            </button>
-                         )) : <p className="col-span-2 text-center text-gray-400">No tienes habilidades.</p>}
+                            <Tooltip key={skill.name} text={`${skill.description} (Enfriamiento: ${skill.cooldown} turnos)`}>
+                                <button disabled={isLoading || skill.currentCooldown > 0} onClick={() => onCombatAction('skill', skill)}
+                                    className="p-2 bg-purple-800/80 rounded hover:bg-purple-700 disabled:bg-gray-600/50 disabled:text-gray-400 flex flex-col items-center">
+                                    <div className="mb-1">{skill.icon}</div>
+                                    <span className="font-semibold text-sm">{skill.name}</span>
+                                    <span className="text-xs">{skill.currentCooldown > 0 ? `CD: ${skill.currentCooldown}` : 'Listo'}</span>
+                                </button>
+                            </Tooltip>
+                         )) : <p className="col-span-full text-center text-gray-400">No tienes habilidades.</p>}
                         </div>
-                        <button onClick={() => setActiveCombatMenu('main')} className="mt-2 w-full p-2 bg-gray-600 rounded">Volver</button>
-                    </>
+                        <button onClick={() => setActiveCombatMenu('main')} className="mt-3 w-full p-2 bg-gray-600 hover:bg-gray-500 rounded text-sm">Volver</button>
+                    </div>
                 );
-            // Cases for 'items' and 'party' would follow a similar structure
             default:
                 return (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <button onClick={() => onCombatAction('attack')} disabled={isLoading} className="p-3 bg-red-800/80 rounded hover:bg-red-700 disabled:bg-gray-600">Atacar</button>
-                        <button onClick={() => setActiveCombatMenu('magic')} disabled={isLoading} className="p-3 bg-blue-800/80 rounded hover:bg-blue-700 disabled:bg-gray-600">Magia</button>
-                        <button onClick={() => setActiveCombatMenu('skills')} disabled={isLoading} className="p-3 bg-purple-800/80 rounded hover:bg-purple-700 disabled:bg-gray-600">Habilidades</button>
-                        <button disabled={true} className="p-3 bg-yellow-800/80 rounded disabled:bg-gray-600/50 cursor-not-allowed">Objetos</button>
-                        {/* Party button can be added here if party logic is expanded */}
+                    <div className="grid grid-cols-4 gap-4 animate-fadeIn">
+                        <ActionButton icon={<IconSword />} label="Atacar" onClick={() => onCombatAction('attack')} disabled={isLoading} color="bg-red-700 text-white" />
+                        <ActionButton icon={<IconMagic />} label="Magia" onClick={() => setActiveCombatMenu('magic')} disabled={isLoading || character.spells.length === 0} color="bg-blue-700 text-white" />
+                        <ActionButton icon={<IconSkill />} label="Habilidades" onClick={() => setActiveCombatMenu('skills')} disabled={isLoading || character.skills.length === 0} color="bg-purple-700 text-white" />
+                        <ActionButton icon={<IconItem />} label="Objetos" onClick={() => {}} disabled={true} color="bg-yellow-700 text-white" />
                     </div>
                 );
         }
@@ -277,7 +293,7 @@ const GameUI: React.FC<GameUIProps> = (props) => {
                 <aside className="h-full flex flex-col gap-4 overflow-y-auto custom-scrollbar">
                     <CharacterSheet character={character} isHit={isPlayerHit} />
                     <PartySheet party={party} />
-                    {enemy && <EnemySheet enemy={enemy} isHit={isEnemyHit} />}
+                    {enemy && <EnemySheet enemy={enemy} isHit={isEnemyHit} isInCombat={isInCombat} />}
                 </aside>
             </main>
 
