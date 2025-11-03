@@ -1,182 +1,173 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Race, CharacterClass, Character, Skill } from '../types';
-import { CLASS_DEFAULTS } from '../constants';
+import React, { useState } from 'react';
+import { Race, CharacterClass, Character, Spell, Skill } from '../types';
+import { RACE_DESCRIPTIONS, RACE_IMAGES, CLASS_DESCRIPTIONS, CLASS_ICONS } from '../constants';
+import Tooltip from './Tooltip';
+import { IconSword, IconDagger } from './Icons';
 
 interface CharacterCreationProps {
   onCharacterCreate: (character: Character) => void;
 }
 
-const ATTRIBUTE_POINTS_POOL = 8;
-
 const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate }) => {
   const [name, setName] = useState('');
-  const [race, setRace] = useState<Race>(Race.Humano);
-  const [characterClass, setCharacterClass] = useState<CharacterClass>(CharacterClass.Guerrero);
-  
-  // State for customizable stats
-  const [characterStats, setCharacterStats] = useState(CLASS_DEFAULTS[characterClass]);
-  const [attributePoints, setAttributePoints] = useState(ATTRIBUTE_POINTS_POOL);
-
-  const initialSkills = useMemo(() => CLASS_DEFAULTS[characterClass].skills, [characterClass]);
-  const [skills, setSkills] = useState<Skill[]>(initialSkills);
-
-  // Reset stats when class changes
-  useEffect(() => {
-    setCharacterStats(CLASS_DEFAULTS[characterClass]);
-    setSkills(CLASS_DEFAULTS[characterClass].skills);
-    setAttributePoints(ATTRIBUTE_POINTS_POOL);
-  }, [characterClass]);
-
-
-  const handleSkillCooldownChange = (skillName: string, cooldown: number) => {
-    setSkills(currentSkills =>
-      currentSkills.map(skill =>
-        skill.name === skillName ? { ...skill, cooldown: Math.max(2, Math.min(5, cooldown)) } : skill
-      )
-    );
-  };
-  
-  const handleStatChange = (stat: keyof typeof characterStats, change: number) => {
-    const baseStatValue = CLASS_DEFAULTS[characterClass][stat] as number;
-    const currentStatValue = characterStats[stat] as number;
-
-    let cost = 1;
-    if (stat === 'attackBonus' || stat === 'armorClass') {
-      cost = 2;
-    }
-    
-    // Increase stat
-    if (change > 0 && attributePoints >= cost) {
-      setAttributePoints(prev => prev - cost);
-      setCharacterStats(prev => ({...prev, [stat]: currentStatValue + change}));
-    }
-    
-    // Decrease stat
-    if (change < 0 && currentStatValue > baseStatValue) {
-       setAttributePoints(prev => prev + cost);
-       setCharacterStats(prev => ({...prev, [stat]: currentStatValue + change}));
-    }
-  };
+  const [selectedRace, setSelectedRace] = useState<Race>(Race.Humano);
+  const [selectedClass, setSelectedClass] = useState<CharacterClass>(CharacterClass.Guerrero);
+  const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert("Por favor, introduce un nombre para tu personaje.");
+      setError('Por favor, introduce un nombre para tu personaje.');
       return;
     }
-    const finalCharacter: Character = {
-      ...characterStats,
-      name: name.trim(),
-      race,
-      characterClass,
-      skills,
-      level: 1,
-      xp: 0,
-    };
-    onCharacterCreate(finalCharacter);
+    setError('');
+
+    // Define base stats and items/skills/spells based on class
+    let newCharacter: Character;
+    const baseSkills: Skill[] = [];
+    const baseSpells: Spell[] = [];
+
+    switch (selectedClass) {
+        case CharacterClass.Guerrero:
+            baseSkills.push({ name: 'Ataque Poderoso', description: 'Un ataque cuerpo a cuerpo que inflige daño adicional.', cooldown: 3, currentCooldown: 0, icon: <IconSword /> });
+            newCharacter = {
+                name,
+                race: selectedRace,
+                characterClass: selectedClass,
+                level: 1,
+                xp: 0,
+                xpToNextLevel: 100,
+                hp: 12, maxHp: 12,
+                mp: 0, maxMp: 0,
+                attackBonus: 3,
+                armorClass: 14,
+                inventory: [{ name: 'Espada Larga', quantity: 1 }, { name: 'Poción de Curación', quantity: 1 }],
+                spells: baseSpells,
+                skills: baseSkills,
+            };
+            break;
+        case CharacterClass.Mago:
+            baseSpells.push({ name: 'Bola de Fuego', cost: 5, description: 'Lanza una bola de fuego que explota al impactar.' });
+            newCharacter = {
+                name,
+                race: selectedRace,
+                characterClass: selectedClass,
+                level: 1,
+                xp: 0,
+                xpToNextLevel: 100,
+                hp: 6, maxHp: 6,
+                mp: 15, maxMp: 15,
+                attackBonus: 1,
+                armorClass: 10,
+                inventory: [{ name: 'Báculo de Mago', quantity: 1 }, { name: 'Poción de Maná', quantity: 1 }],
+                spells: baseSpells,
+                skills: baseSkills,
+            };
+            break;
+        case CharacterClass.Picaro:
+            baseSkills.push({ name: 'Ataque Furtivo', description: 'Un ataque preciso desde las sombras que ignora parte de la armadura del enemigo.', cooldown: 2, currentCooldown: 0, icon: <IconDagger /> });
+            newCharacter = {
+                name,
+                race: selectedRace,
+                characterClass: selectedClass,
+                level: 1,
+                xp: 0,
+                xpToNextLevel: 100,
+                hp: 8, maxHp: 8,
+                mp: 5, maxMp: 5,
+                attackBonus: 2,
+                armorClass: 12,
+                inventory: [{ name: 'Daga', quantity: 2 }, { name: 'Herramientas de Ladrón', quantity: 1 }],
+                spells: baseSpells,
+                skills: baseSkills,
+            };
+            break;
+        case CharacterClass.Clerigo:
+             baseSpells.push({ name: 'Curar Heridas Leves', cost: 4, description: 'Restaura una pequeña cantidad de puntos de salud.' });
+             newCharacter = {
+                name,
+                race: selectedRace,
+                characterClass: selectedClass,
+                level: 1,
+                xp: 0,
+                xpToNextLevel: 100,
+                hp: 10, maxHp: 10,
+                mp: 10, maxMp: 10,
+                attackBonus: 2,
+                armorClass: 13,
+                inventory: [{ name: 'Maza', quantity: 1 }, { name: 'Símbolo Sagrado', quantity: 1 }],
+                spells: baseSpells,
+                skills: baseSkills,
+            };
+            break;
+        default:
+            throw new Error('Clase de personaje no válida');
+    }
+    
+    onCharacterCreate(newCharacter);
   };
 
-  const StatEditor: React.FC<{label: string, value: number, onIncrease: () => void, onDecrease: () => void, canIncrease: boolean, canDecrease: boolean}> = ({ label, value, onIncrease, onDecrease, canIncrease, canDecrease }) => (
-    <div className="flex justify-between items-center">
-        <span className="text-gray-300">{label}: <span className="font-bold text-white">{value}</span></span>
-        <div className="flex items-center gap-2">
-            <button type="button" onClick={onDecrease} disabled={!canDecrease} className="w-8 h-8 bg-red-800 rounded-full disabled:bg-gray-600 hover:bg-red-700 transition-colors">-</button>
-            <button type="button" onClick={onIncrease} disabled={!canIncrease} className="w-8 h-8 bg-green-800 rounded-full disabled:bg-gray-600 hover:bg-green-700 transition-colors">+</button>
-        </div>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4 font-body" style={{backgroundImage: 'url(https://www.transparenttextures.com/patterns/dark-denim-3.png)'}}>
-      <div className="w-full max-w-2xl bg-black/50 p-8 rounded-xl shadow-2xl border border-yellow-400/20 animate-fadeIn">
-        <h2 className="text-4xl font-title text-yellow-400 mb-6 text-center">Crea tu Héroe</h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4 font-body" style={{ backgroundImage: 'url(https://www.transparenttextures.com/patterns/dark-denim-3.png)' }}>
+      <div className="w-full max-w-4xl bg-black/50 p-8 rounded-xl shadow-2xl border border-yellow-400/20 animate-fadeIn">
+        <h1 className="text-5xl font-title text-yellow-400 mb-6 text-center">Crea tu Héroe</h1>
+        
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Name Input */}
           <div>
-            <label htmlFor="name" className="block text-lg font-semibold mb-2 text-gray-300">Nombre:</label>
+            <label htmlFor="name" className="block text-xl mb-2 font-semibold text-gray-300">Nombre</label>
             <input
               id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-3 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              placeholder="Escribe el nombre de tu aventurero"
-              autoFocus
+              placeholder="Escribe el nombre de tu personaje"
+              className="w-full p-3 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 text-lg"
             />
+             {error && <p className="text-red-500 mt-2">{error}</p>}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="race" className="block text-lg font-semibold mb-2 text-gray-300">Raza:</label>
-              <select id="race" value={race} onChange={(e) => setRace(e.target.value as Race)} className="w-full p-3 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                {Object.values(Race).map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
+          {/* Race Selection */}
+          <div>
+            <h2 className="text-xl mb-4 font-semibold text-gray-300">Raza: <span className="text-yellow-400">{selectedRace}</span></h2>
+            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-4">
+              {Object.values(Race).map((race) => (
+                <Tooltip key={race} text={RACE_DESCRIPTIONS[race]}>
+                  <div
+                    onClick={() => setSelectedRace(race)}
+                    className={`cursor-pointer transition-all duration-300 transform hover:scale-105 rounded-lg overflow-hidden border-2 bg-gray-800/50 p-2 flex items-center justify-center
+                      ${selectedRace === race ? 'border-yellow-400 shadow-lg shadow-yellow-400/30' : 'border-gray-700 hover:border-yellow-600'}`}
+                  >
+                    <img src={RACE_IMAGES[race]} alt={race} className="w-20 h-24 object-contain" />
+                  </div>
+                </Tooltip>
+              ))}
             </div>
-            <div>
-              <label htmlFor="class" className="block text-lg font-semibold mb-2 text-gray-300">Clase:</label>
-              <select id="class" value={characterClass} onChange={(e) => setCharacterClass(e.target.value as CharacterClass)} className="w-full p-3 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                {Object.values(CharacterClass).map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+          </div>
+
+          {/* Class Selection */}
+          <div>
+            <h2 className="text-xl mb-4 font-semibold text-gray-300">Clase: <span className="text-yellow-400">{selectedClass}</span></h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.values(CharacterClass).map((charClass) => (
+                 <div
+                    key={charClass}
+                    onClick={() => setSelectedClass(charClass)}
+                    className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-300 flex flex-col items-center gap-2
+                      ${selectedClass === charClass ? 'bg-yellow-600/20 border-yellow-500' : 'bg-gray-800/50 border-gray-700 hover:border-yellow-600'}`}
+                  >
+                    <div className="text-yellow-400">{CLASS_ICONS[charClass]}</div>
+                    <h3 className="font-bold text-lg">{charClass}</h3>
+                    <p className="text-xs text-center text-gray-400">{CLASS_DESCRIPTIONS[charClass]}</p>
+                  </div>
+              ))}
             </div>
           </div>
-          
-          <div className="bg-gray-800/50 p-4 rounded-md border border-gray-700 space-y-3">
-            <h4 className="text-lg font-semibold text-yellow-500 text-center mb-2">Asigna tus Puntos de Atributo</h4>
-            <p className="text-center font-bold text-xl mb-3">Puntos restantes: {attributePoints}</p>
-            
-            <StatEditor 
-                label="Puntos de Salud" 
-                value={characterStats.maxHp}
-                onIncrease={() => handleStatChange('maxHp', 2)}
-                onDecrease={() => handleStatChange('maxHp', -2)}
-                canIncrease={attributePoints >= 1}
-                canDecrease={characterStats.maxHp > CLASS_DEFAULTS[characterClass].maxHp}
-            />
-             <StatEditor 
-                label="Puntos de Maná" 
-                value={characterStats.maxMp}
-                onIncrease={() => handleStatChange('maxMp', 2)}
-                onDecrease={() => handleStatChange('maxMp', -2)}
-                canIncrease={attributePoints >= 1}
-                canDecrease={characterStats.maxMp > CLASS_DEFAULTS[characterClass].maxMp}
-            />
-             <StatEditor 
-                label="Bono de Ataque" 
-                value={characterStats.attackBonus}
-                onIncrease={() => handleStatChange('attackBonus', 1)}
-                onDecrease={() => handleStatChange('attackBonus', -1)}
-                canIncrease={attributePoints >= 2}
-                canDecrease={characterStats.attackBonus > CLASS_DEFAULTS[characterClass].attackBonus}
-            />
-             <StatEditor 
-                label="Clase de Armadura" 
-                value={characterStats.armorClass}
-                onIncrease={() => handleStatChange('armorClass', 1)}
-                onDecrease={() => handleStatChange('armorClass', -1)}
-                canIncrease={attributePoints >= 2}
-                canDecrease={characterStats.armorClass > CLASS_DEFAULTS[characterClass].armorClass}
-            />
-             <p className="text-xs text-gray-400 text-center pt-2">PS/PM cuestan 1 punto (+2). Ataque/Armadura cuestan 2 puntos (+1).</p>
-          </div>
 
-          <div className="bg-gray-800/50 p-4 rounded-md border border-gray-700">
-             {skills.length > 0 && <h4 className="text-lg font-semibold text-yellow-500 mb-2">Ajustar Habilidad de Clase</h4>}
-             {skills.map((skill, index) => (
-                <div key={index} className="mt-2">
-                    <label htmlFor={`skill-${index}`} className="block text-sm font-semibold text-gray-300">{skill.name} - Enfriamiento: {skill.cooldown} turnos</label>
-                    <input
-                        id={`skill-${index}`}
-                        type="range"
-                        min="2"
-                        max="5"
-                        value={skill.cooldown}
-                        onChange={(e) => handleSkillCooldownChange(skill.name, parseInt(e.target.value, 10))}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    />
-                </div>
-             ))}
-          </div>
-
-          <button type="submit" className="w-full py-3 mt-4 bg-yellow-600 text-gray-900 font-bold rounded-lg shadow-lg hover:bg-yellow-500 transition-colors duration-300 text-xl">
+          <button
+            type="submit"
+            className="w-full px-8 py-4 bg-yellow-600 text-gray-900 font-bold rounded-lg shadow-lg hover:bg-yellow-500 transition-colors duration-300 text-2xl"
+          >
             Comenzar Aventura
           </button>
         </form>
