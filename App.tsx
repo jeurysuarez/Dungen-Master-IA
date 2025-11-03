@@ -1,233 +1,227 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// Fix: Added content for the main App component to manage game state and UI flow.
+import React, { useState, useEffect } from 'react';
 import TitleScreen from './components/TitleScreen';
 import CharacterCreation from './components/CharacterCreation';
 import GameUI from './components/GameUI';
-import { GameState, Character, SavedGame, Settings, DMResponse, Enemy, Ally, Item } from './types';
-import { sendMessageToDM } from './services/geminiService';
-import * as audioService from './services/audioService';
-
-const SAVE_GAME_KEY = 'dungeon-master-ia-savegame';
+import { GameState, Character, Enemy, Ally, DMResponse, SavedGame, Settings } from './types';
+import { sendMessageToDM, generateSpeech } from './services/geminiService';
+import { decode, decodeAudioData } from './utils/audioUtils';
+import { setVolume } from './services/audioService';
 
 const App: React.FC = () => {
     const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
     const [character, setCharacter] = useState<Character | null>(null);
-    const [storyLog, setStoryLog] = useState<string[]>([]);
-    const [isInCombat, setIsInCombat] = useState(false);
     const [enemy, setEnemy] = useState<Enemy | null>(null);
     const [party, setParty] = useState<Ally[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [storyLog, setStoryLog] = useState<string[]>([]);
+    const [isDMThinking, setIsDMThinking] = useState(false);
+    const [isInCombat, setIsInCombat] = useState(false);
     const [hasSavedGame, setHasSavedGame] = useState(false);
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
-    const [justFinishedCombat, setJustFinishedCombat] = useState(false);
+    const [audioQueue, setAudioQueue] = useState<string[]>([]);
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+
     const [settings, setSettings] = useState<Settings>({
         ttsEnabled: false,
-        volume: 0.5,
+        volume: 0.7,
         textSpeed: 50,
     });
 
-    const showToast = useCallback((message: string) => {
-        setToastMessage(message);
-        setTimeout(() => setToastMessage(null), 3000);
+    useEffect(() => {
+        const savedGame = localStorage.getItem('dungeon-master-ia-save');
+        setHasSavedGame(!!savedGame);
     }, []);
 
-    // Check for saved game on mount
     useEffect(() => {
-        const savedData = localStorage.getItem(SAVE_GAME_KEY);
-        if (savedData) {
-            setHasSavedGame(true);
-        }
-        audioService.setVolume(settings.volume);
+        setVolume(settings.volume);
     }, [settings.volume]);
 
-    const saveGame = useCallback((isManualSave = false) => {
-        if (character) {
-            const gameData: SavedGame = {
-                character,
-                storyLog,
-                isInCombat,
-                enemy,
-                party,
-                settings,
-            };
-            localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(gameData));
-            setHasSavedGame(true);
-            if (isManualSave) {
-                showToast("Partida guardada.");
-            } else {
-                showToast("Progreso guardado automáticamente.");
+     useEffect(() => {
+        if (!audioContext) {
+             try {
+                const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+                setAudioContext(context);
+            } catch (e) {
+                console.error("Web Audio API is not supported in this browser.");
             }
         }
-    }, [character, storyLog, isInCombat, enemy, party, settings, showToast]);
-
-    const loadGame = (fromMenu = false) => {
-        if (!fromMenu && !window.confirm("¿Seguro que quieres cargar la última partida guardada? Perderás el progreso no guardado.")) {
-            return;
+    }, [audioContext]);
+    
+    useEffect(() => {
+        if (audioQueue.length > 0 && !isPlayingAudio && settings.ttsEnabled && audioContext) {
+            playNextInQueue();
         }
+    }, [audioQueue, isPlayingAudio, settings.ttsEnabled, audioContext]);
 
-        const savedData = localStorage.getItem(SAVE_GAME_KEY);
-        if (savedData) {
-            const gameData: SavedGame = JSON.parse(savedData);
-            setCharacter(gameData.character);
-            setStoryLog(gameData.storyLog);
-            setIsInCombat(gameData.isInCombat);
-            setEnemy(gameData.enemy);
-            setParty(gameData.party);
-            setSettings(gameData.settings);
+    const playNextInQueue = async () => {
+        if (audioQueue.length === 0 || !audioContext) return;
+
+        setIsPlayingAudio(true);
+        const base64Audio = audioQueue[0];
+        
+        try {
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+            const audioBuffer = await decodeAudioData(decode(base64Audio), audioContext, 24000, 1);
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start();
+            source.onended = () => {
+                setAudioQueue(prev => prev.slice(1));
+                setIsPlayingAudio(false);
+            };
+        } catch (error) {
+            console.error("Error playing audio:", error);
+            setAudioQueue(prev => prev.slice(1)); // Skip corrupted audio data
+            setIsPlayingAudio(false);
+        }
+    };
+    
+    const saveGame = (char: Character, log: string[], combat: boolean, enmy: Enemy | null, pty: Ally[]) => {
+        const gameToSave: SavedGame = {
+            character: char,
+            storyLog: log,
+            isInCombat: combat,
+            enemy: enmy,
+            party: pty,
+            settings: settings
+        };
+        localStorage.setItem('dungeon-master-ia-save', JSON.stringify(gameToSave));
+        setHasSavedGame(true);
+    };
+
+    const loadGame = () => {
+        const savedGameJSON = localStorage.getItem('dungeon-master-ia-save');
+        if (savedGameJSON) {
+            const savedGame: SavedGame = JSON.parse(savedGameJSON);
+            setCharacter(savedGame.character);
+            setStoryLog(savedGame.storyLog);
+            setIsInCombat(savedGame.isInCombat);
+            setEnemy(savedGame.enemy);
+            setParty(savedGame.party);
+            if(savedGame.settings) setSettings(savedGame.settings);
             setGameState(GameState.PLAYING);
-            showToast("Partida cargada.");
-        } else {
-            showToast("No se encontró ninguna partida guardada.");
         }
+    };
+    
+    const startNewGame = () => {
+        localStorage.removeItem('dungeon-master-ia-save');
+        setGameState(GameState.CHARACTER_CREATION);
+        setCharacter(null);
+        setEnemy(null);
+        setParty([]);
+        setStoryLog([]);
+        setIsDMThinking(false);
+        setIsInCombat(false);
+    };
+
+    const handleCharacterCreation = async (newCharacter: Character) => {
+        setCharacter(newCharacter);
+        setGameState(GameState.PLAYING);
+        setStoryLog([]);
+        const initialPrompt = `Comienza la aventura para ${newCharacter.name}, el ${newCharacter.race} ${newCharacter.characterClass}. Describe la escena inicial de forma evocadora.`;
+        await handlePlayerAction(initialPrompt, newCharacter, [], null, []);
+    };
+    
+    const processDMResponse = async (response: DMResponse, currentCharacter: Character, currentParty: Ally[], currentEnemy: Enemy | null, currentLog: string[]) => {
+        let newCharacterState = { ...currentCharacter };
+        let newPartyState = [...currentParty];
+        let newEnemyState = currentEnemy ? { ...currentEnemy } : null;
+        let combatOver = response.combatOver || false;
+        let newLog = [...currentLog];
+        
+        if (response.storyText) {
+            newLog.push(response.storyText);
+            setStoryLog(newLog);
+            if (settings.ttsEnabled) {
+                const audioData = await generateSpeech(response.storyText.replace(/<[^>]*>?/gm, '')); // Strip HTML for TTS
+                if (audioData) {
+                    setAudioQueue(prev => [...prev, audioData]);
+                }
+            }
+        }
+        
+        if (response.encounter) {
+            newEnemyState = response.encounter;
+            setIsInCombat(true);
+        }
+
+        if (response.playerUpdate) {
+            newCharacterState.hp = response.playerUpdate.hp ?? newCharacterState.hp;
+            newCharacterState.mp = response.playerUpdate.mp ?? newCharacterState.mp;
+        }
+
+        if (response.enemyUpdate && newEnemyState) {
+            newEnemyState.hp = response.enemyUpdate.hp ?? newEnemyState.hp;
+        }
+        
+        if (combatOver && newEnemyState?.hp <= 0) {
+            newEnemyState = null;
+            setIsInCombat(false);
+        }
+        
+        if (response.xpAward) {
+            newCharacterState.xp += response.xpAward;
+            // TODO: Add level up logic
+        }
+
+        setCharacter(newCharacterState);
+        setParty(newPartyState);
+        setEnemy(newEnemyState);
+
+        return { finalChar: newCharacterState, finalParty: newPartyState, finalEnemy: newEnemyState, finalCombat: !combatOver && isInCombat, finalLog: newLog };
+    };
+
+    const handlePlayerAction = async (action: string, char?: Character, pty?: Ally[], enmy?: Enemy | null, log?: string[]) => {
+        const currentCharacter = char || character;
+        const currentParty = pty || party;
+        const currentEnemy = enmy || enemy;
+        const currentLog = log || storyLog;
+
+        if (!currentCharacter) return;
+
+        const actionLog = [...currentLog, `<i class="text-amber-300">> ${action}</i>`];
+        setStoryLog(actionLog);
+        setIsDMThinking(true);
+
+        const response = await sendMessageToDM(action, currentCharacter, currentParty, currentEnemy, actionLog);
+        
+        const { finalChar, finalParty, finalEnemy, finalCombat, finalLog } = await processDMResponse(response, currentCharacter, currentParty, currentEnemy, actionLog);
+
+        setIsDMThinking(false);
+        saveGame(finalChar, finalLog, finalCombat, finalEnemy, finalParty);
     };
 
     const handleSettingsChange = (newSettings: Partial<Settings>) => {
-        setSettings(prev => ({ ...prev, ...newSettings }));
-    };
+        setSettings(prev => ({...prev, ...newSettings}));
+    }
 
-    const handleStartNew = () => {
-         if (hasSavedGame && !window.confirm("¿Empezar una nueva partida? Se borrará tu progreso guardado.")) {
-            return;
-        }
-        localStorage.removeItem(SAVE_GAME_KEY);
-        setHasSavedGame(false);
-        setGameState(GameState.CHARACTER_CREATION);
-    };
-
-    const handleContinue = () => {
-        loadGame(true);
-    };
-
-    const handleCharacterCreate = (newCharacter: Character) => {
-        setCharacter(newCharacter);
-        const initialLog = [`${newCharacter.name} el ${newCharacter.race} ${newCharacter.characterClass} comienza su aventura.`];
-        setStoryLog(initialLog);
-        setIsInCombat(false);
-        setEnemy(null);
-        setParty([]);
-        setGameState(GameState.PLAYING);
-        
-        handleSendAction("Comienza la aventura. Describe la escena inicial.");
-    };
-
-    const processDMResponse = (response: DMResponse) => {
-        if (response.storyText) {
-            setStoryLog(prev => [...prev, response.storyText]);
-        }
-        if (response.encounter) {
-            setEnemy(response.encounter);
-            setIsInCombat(true);
-        }
-        if (response.playerUpdate && character) {
-            setCharacter(prev => prev ? { ...prev, hp: response.playerUpdate?.hp ?? prev.hp, mp: response.playerUpdate?.mp ?? prev.mp } : null);
-        }
-        if (response.enemyUpdate && enemy) {
-            setEnemy(prev => prev ? { ...prev, hp: response.enemyUpdate?.hp ?? prev.hp } : null);
-        }
-        if (response.partyUpdate) {
-            setParty(prevParty => prevParty.map(ally => {
-                const update = response.partyUpdate?.find(p => p.name === ally.name);
-                return update ? { ...ally, hp: update.hp } : ally;
-            }));
-        }
-        if (response.loot && character) {
-            setCharacter(prev => {
-                if (!prev) return null;
-                const newInventory = [...prev.inventory];
-                response.loot?.forEach((item: Item) => {
-                    const existingItem = newInventory.find(i => i.name === item.name);
-                    if (existingItem) {
-                        existingItem.quantity += item.quantity;
-                    } else {
-                        newInventory.push(item);
-                    }
-                });
-                return { ...prev, inventory: newInventory };
-            });
-        }
-        if (response.newAlly) {
-            setParty(prev => [...prev, response.newAlly!]);
-        }
-        if (response.combatOver) {
-            setIsInCombat(false);
-            setEnemy(null);
-            setJustFinishedCombat(true);
-        }
-        if (response.xpAward && character) {
-            setCharacter(prev => {
-                if (!prev) return null;
-                const newXp = prev.xp + response.xpAward!;
-                if (newXp >= prev.xpToNextLevel) {
-                    setStoryLog(prevLog => [...prevLog, `¡${character.name} ha subido de nivel!`]);
-                    return { ...prev, level: prev.level + 1, xp: newXp - prev.xpToNextLevel, xpToNextLevel: prev.xpToNextLevel * 2 };
-                }
-                return { ...prev, xp: newXp };
-            });
-        }
-    };
-
-    const handleSendAction = async (action: string) => {
-        if (!character) return;
-        setIsLoading(true);
-        const currentStory = [...storyLog, `> ${action}`];
-        setStoryLog(currentStory);
-        const response = await sendMessageToDM(action, character, party, enemy, currentStory);
-        processDMResponse(response);
-        setIsLoading(false);
-    };
-    
-    // Autosave after combat ends
-    useEffect(() => {
-        if (justFinishedCombat) {
-            saveGame(false);
-            setJustFinishedCombat(false);
-        }
-    }, [justFinishedCombat, saveGame]);
-
-    // Timed autosave
-    useEffect(() => {
-        let intervalId: number | null = null;
-        if (gameState === GameState.PLAYING) {
-            intervalId = window.setInterval(() => {
-                saveGame(false);
-            }, 5 * 60 * 1000); // 5 minutes
-        }
-        return () => {
-            if (intervalId) {
-                clearInterval(intervalId);
-            }
-        };
-    }, [gameState, saveGame]);
-
-    const renderGameState = () => {
+    const renderGame = () => {
         switch (gameState) {
             case GameState.TITLE:
-                return <TitleScreen onStartNew={handleStartNew} onContinue={handleContinue} hasSavedGame={hasSavedGame} />;
+                return <TitleScreen onStartNew={startNewGame} onContinue={loadGame} hasSavedGame={hasSavedGame} />;
             case GameState.CHARACTER_CREATION:
-                return <CharacterCreation onCharacterCreate={handleCharacterCreate} />;
+                return <CharacterCreation onCharacterCreate={handleCharacterCreation} />;
             case GameState.PLAYING:
-                if (!character) return <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">Loading character...</div>;
-                return (
-                    <GameUI
-                        character={character}
-                        enemy={enemy}
-                        party={party}
-                        storyLog={storyLog}
-                        isLoading={isLoading}
-                        isInCombat={isInCombat}
-                        onSendAction={handleSendAction}
-                        settings={settings}
-                        onSettingsChange={handleSettingsChange}
-                        onManualSave={() => saveGame(true)}
-                        onManualLoad={() => loadGame(false)}
-                        toastMessage={toastMessage}
-                    />
-                );
+                if (!character) return <div className="flex items-center justify-center min-h-screen bg-slate-900 text-stone-200">Cargando personaje...</div>;
+                return <GameUI 
+                    character={character}
+                    enemy={enemy}
+                    party={party}
+                    storyLog={storyLog}
+                    isDMThinking={isDMThinking}
+                    onPlayerAction={(action) => handlePlayerAction(action)}
+                    settings={settings}
+                    onSettingsChange={handleSettingsChange}
+                />;
             default:
-                return <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">Unknown game state</div>;
+                return <div className="flex items-center justify-center min-h-screen bg-slate-900 text-stone-200">Estado de juego desconocido</div>;
         }
     };
 
-    return <div className="App">{renderGameState()}</div>;
+    return <div className="App">{renderGame()}</div>;
 };
 
 export default App;
