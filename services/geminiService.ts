@@ -31,7 +31,7 @@ El jugador te enviará sus acciones y tú debes responder con la progresión de 
 2.  **Formato de Respuesta:** SIEMPRE debes responder con un objeto JSON válido, sin excepciones. No incluyas "'''json" o "'''" en tu respuesta. La respuesta debe ser únicamente el objeto JSON.
 3.  **Flujo del Juego:** Controlas la narrativa, los NPCs, los enemigos y el mundo. Describe el entorno, los resultados de las acciones del jugador y los eventos que ocurren.
 4.  **Combate:**
-    *   Cuando introduces un enemigo, debes rellenar el campo \`encounter\`.
+    *   Cuando introduces un enemigo, debes rellenar el campo \`encounter\`, incluyendo una descripción.
     *   El jugador te informará del resultado de su tirada de ataque (d20 + bono de ataque). Tú debes comparar ese total con la Clase de Armadura (CA) del enemigo. Si el total es igual o mayor, el ataque acierta.
     *   Tú simulas el daño del jugador y el tuyo propio. Describe el resultado del ataque en \`storyText\`.
     *   Actualiza los puntos de salud (PS) usando los campos \`playerUpdate\`, \`enemyUpdate\` y \`partyUpdate\`.
@@ -55,7 +55,7 @@ ${last5turns}
 \`\`\`json
 {
   "storyText": "La narrativa principal. Describe lo que sucede.",
-  "encounter": { "name": "...", "hp": 0, "maxHp": 0, "attackBonus": 0, "armorClass": 0 },
+  "encounter": { "name": "...", "hp": 0, "maxHp": 0, "attackBonus": 0, "armorClass": 0, "description": "Una descripción detallada del enemigo, incluyendo posibles pistas sobre sus fortalezas o debilidades." },
   "playerUpdate": { "hp": 0, "mp": 0 },
   "enemyUpdate": { "hp": 0 },
   "partyUpdate": [{ "name": "...", "hp": 0 }],
@@ -111,7 +111,9 @@ export const sendMessageToDM = async (
         return parsedResponse;
     } catch (error) {
         console.error("Error parsing Gemini response:", error);
-        console.error("Raw response text:", (error as any)?.response?.text);
+        if (error instanceof Error) {
+          console.error("Raw response text:", (error as any)?.response?.text);
+        }
         return {
             storyText: "El Dungeon Master parece confundido por un momento (hubo un error al procesar la respuesta). Por favor, intenta tu acción de nuevo.",
         };
@@ -122,6 +124,7 @@ export const generateSpeech = async (text: string): Promise<string | null> => {
     try {
         const ai = getAI();
         const response = await ai.models.generateContent({
+            // Fix: Updated deprecated TTS model name to the recommended one.
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text }] }],
             config: {

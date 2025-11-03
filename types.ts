@@ -74,6 +74,7 @@ export interface Enemy {
   maxHp: number;
   attackBonus: number;
   armorClass: number;
+  description?: string;
 }
 
 export interface DMResponse {
@@ -94,4 +95,11 @@ export interface SavedGame {
   isInCombat: boolean;
   enemy: Enemy | null;
   party: Ally[];
+  settings: Settings;
+}
+
+export interface Settings {
+    ttsEnabled: boolean;
+    volume: number;
+    textSpeed: number; // 0 for instant, 50 for normal, 100 for slow
 }
