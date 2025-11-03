@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+// Fix: Corrected import paths for types and icons.
 import { Settings } from '../types';
 import { IconSoundOn, IconSoundOff } from './Icons';
 

@@ -67,7 +67,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
           <>
             <h2 className="text-3xl font-bold text-amber-400 mb-2 font-title">Elige tu Raza</h2>
             <p className="text-stone-400 mb-6 max-w-md text-center">{RACE_DESCRIPTIONS[race]}</p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-2xl">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-2xl">
               {Object.values(Race).map((r) => (
                 <button key={r} onClick={() => setRace(r)} className={`p-4 rounded-lg border-2 transition-colors ${race === r ? 'bg-purple-700 border-purple-500 text-stone-100 font-bold' : 'bg-slate-800 border-slate-700 hover:border-purple-500'}`}>{r}</button>
               ))}
@@ -92,7 +92,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
                             onClick={() => setRacialSkill(skill)} 
                             className={`flex-1 p-4 rounded-lg border-2 text-left transition-colors flex items-center gap-4 ${racialSkill.name === skill.name ? 'bg-purple-700 border-purple-500' : 'bg-slate-800 border-slate-700 hover:border-purple-500'}`}
                         >
-                            <div className="w-10 h-10 flex-shrink-0">{IconComponent && <IconComponent/>}</div>
+                            <div className="w-10 h-10 flex-shrink-0">{IconComponent && <IconComponent className="w-full h-full" />}</div>
                             <div>
                                 <h3 className="font-bold text-stone-100">{skill.name}</h3>
                                 <p className="text-sm text-stone-300">{skill.description}</p>
@@ -128,7 +128,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-stone-200 font-body p-4 animate-fadeIn">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-stone-200 font-body p-2 sm:p-4 animate-fadeIn">
       {renderStep()}
     </div>
   );

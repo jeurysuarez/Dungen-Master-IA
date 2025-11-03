@@ -1,5 +1,7 @@
 
+
 import React, { useEffect, useState } from 'react';
+// Fix: Corrected import paths for types and icons.
 import { Item } from '../types';
 import { IconTreasureChest, IconX } from './Icons';
 

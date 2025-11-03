@@ -1,149 +1,128 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { GameState, Character, SavedGame, Settings, DMResponse, Item, Ally, Enemy } from './types';
 import TitleScreen from './components/TitleScreen';
 import CharacterCreation from './components/CharacterCreation';
 import GameUI from './components/GameUI';
-import { setVolume } from './services/audioService';
+import { GameState, Character, Settings } from './types';
+import { sendMessageToDM } from './services/geminiService';
+import * as audioService from './services/audioService';
 
-const SAVE_GAME_KEY = 'dungeon-master-ia-save';
+const SAVE_GAME_KEY = 'dungeonMasterIASaveGame';
 
 const App: React.FC = () => {
-    const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
-    const [savedGame, setSavedGame] = useState<SavedGame | null>(null);
-    const [character, setCharacter] = useState<Character | null>(null);
-    const [storyLog, setStoryLog] = useState<string[]>([]);
+    const [gameState, setGameState] = useState<GameState | null>(null);
+    const [appState, setAppState] = useState<'title' | 'character-creation' | 'in-game'>('title');
+    const [hasSavedGame, setHasSavedGame] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [settings, setSettings] = useState<Settings>({
-        ttsEnabled: false,
-        volume: 0.7,
-        textSpeed: 50,
-    });
     
-    // Derived state for GameUI
-    const [isInCombat, setIsInCombat] = useState(false);
-    const [enemy, setEnemy] = useState<Enemy | null>(null);
-    const [party, setParty] = useState<Ally[]>([]);
-    const [loot, setLoot] = useState<Item[]>([]);
+    const [settings, setSettings] = useState<Settings>(() => {
+        const savedSettings = localStorage.getItem('dungeonMasterIASettings');
+        return savedSettings ? JSON.parse(savedSettings) : {
+            ttsEnabled: true,
+            volume: 0.7,
+            textSpeed: 50,
+        };
+    });
 
     useEffect(() => {
-        try {
-            const savedData = localStorage.getItem(SAVE_GAME_KEY);
-            if (savedData) {
-                setSavedGame(JSON.parse(savedData));
-            }
-        } catch (error) {
-            console.error("Failed to load saved game:", error);
-            localStorage.removeItem(SAVE_GAME_KEY);
+        const savedGame = localStorage.getItem(SAVE_GAME_KEY);
+        setHasSavedGame(!!savedGame);
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem('dungeonMasterIASettings', JSON.stringify(settings));
+        audioService.setVolume(settings.volume);
+    }, [settings]);
+
+    const handleSettingsChange = (newSettings: Partial<Settings>) => {
+        setSettings(prev => ({ ...prev, ...newSettings }));
+    };
+
+    const saveGame = useCallback((currentGameState: GameState | null) => {
+        if (currentGameState) {
+            localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(currentGameState));
+            setHasSavedGame(true);
         }
     }, []);
     
-    useEffect(() => {
-        setVolume(settings.volume);
-    }, [settings.volume]);
-
-    const saveGame = useCallback(() => {
-        if (character) {
-            const gameToSave: SavedGame = {
-                character,
-                storyLog,
-                isInCombat,
-                enemy: enemy || null,
-                party: party || [],
-                settings,
-            };
-            try {
-                localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(gameToSave));
-                setSavedGame(gameToSave);
-            } catch (error) {
-                console.error("Failed to save game:", error);
-            }
-        }
-    }, [character, storyLog, isInCombat, enemy, party, settings]);
-
     const handleStartNew = () => {
-        if (savedGame) {
-            if (window.confirm("¿Seguro que quieres empezar una nueva partida? Se borrará tu progreso guardado.")) {
-                localStorage.removeItem(SAVE_GAME_KEY);
-                setSavedGame(null);
-                setCharacter(null);
-                setStoryLog([]);
-                setEnemy(null);
-                setParty([]);
-                setLoot([]);
-                setGameState(GameState.CHARACTER_CREATION);
-            }
-        } else {
-            setGameState(GameState.CHARACTER_CREATION);
-        }
+        setAppState('character-creation');
     };
-    
+
     const handleContinue = () => {
+        const savedGame = localStorage.getItem(SAVE_GAME_KEY);
         if (savedGame) {
-            setCharacter(savedGame.character);
-            setStoryLog(savedGame.storyLog);
-            setIsInCombat(savedGame.isInCombat);
-            setEnemy(savedGame.enemy);
-            setParty(savedGame.party);
-            setSettings(savedGame.settings);
-            setGameState(GameState.PLAYING);
+            setGameState(JSON.parse(savedGame));
+            setAppState('in-game');
         }
     };
 
-    const handleCharacterCreate = (newCharacter: Character) => {
-        setCharacter(newCharacter);
-        setStoryLog([`Te llamas ${newCharacter.name}, un ${newCharacter.race} ${newCharacter.characterClass}. La aventura comienza...`]);
-        setIsInCombat(false);
-        setEnemy(null);
-        setParty([]);
-        setGameState(GameState.PLAYING);
-        setIsLoading(true); // Initial loading for the first story bit
+    const handleCharacterCreate = async (character: Character) => {
+        setIsLoading(true);
+        const initialLog = "Tu aventura comienza...";
+        const newGameState: GameState = {
+            character,
+            party: [],
+            enemy: null,
+            storyLog: [initialLog],
+            location: "Una posada con poca luz",
+        };
+
+        const response = await sendMessageToDM(
+            "Acabo de crear mi personaje. ¿Dónde estoy y qué veo?",
+            character,
+            [],
+            null,
+            [initialLog]
+        );
+
+        setGameState({
+            ...newGameState,
+            storyLog: [initialLog, response.storyText],
+        });
+        
+        setAppState('in-game');
+        setIsLoading(false);
     };
     
-    const handleSettingsChange = (newSettings: Partial<Settings>) => {
-        setSettings(prev => ({ ...prev, ...newSettings }));
-    }
+    useEffect(() => {
+        if (appState === 'in-game' && gameState) {
+            saveGame(gameState);
+        }
+    }, [gameState, appState, saveGame]);
+
 
     const renderContent = () => {
-        switch (gameState) {
-            case GameState.CHARACTER_CREATION:
+        if (isLoading) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-stone-200">
+                    <h1 className="text-4xl font-title text-amber-400">Forjando tu destino...</h1>
+                </div>
+            );
+        }
+
+        switch (appState) {
+            case 'title':
+                return <TitleScreen onStartNew={handleStartNew} onContinue={handleContinue} hasSavedGame={hasSavedGame} />;
+            case 'character-creation':
                 return <CharacterCreation onCharacterCreate={handleCharacterCreate} />;
-            case GameState.PLAYING:
-                if (!character) return null; // Should not happen
-                return (
-                    <GameUI
-                        character={character}
-                        setCharacter={setCharacter}
-                        storyLog={storyLog}
-                        setStoryLog={setStoryLog}
-                        isLoading={isLoading}
-                        setIsLoading={setIsLoading}
-                        isInCombat={isInCombat}
-                        setIsInCombat={setIsInCombat}
-                        enemy={enemy}
-                        setEnemy={setEnemy}
-                        party={party}
-                        setParty={setParty}
-                        loot={loot}
-                        setLoot={setLoot}
+            case 'in-game':
+                if (gameState) {
+                    return <GameUI 
+                        gameState={gameState} 
+                        setGameState={setGameState} 
                         settings={settings}
                         onSettingsChange={handleSettingsChange}
-                        saveGame={saveGame}
-                    />
-                );
-            case GameState.TITLE:
+                    />;
+                }
+                // Fallback in case gameState is null
+                setAppState('title');
+                return null;
             default:
-                return (
-                    <TitleScreen
-                        onStartNew={handleStartNew}
-                        onContinue={handleContinue}
-                        hasSavedGame={!!savedGame}
-                    />
-                );
+                return <TitleScreen onStartNew={handleStartNew} onContinue={handleContinue} hasSavedGame={hasSavedGame} />;
         }
     };
 
-    return <div className="bg-slate-900 min-h-screen">{renderContent()}</div>;
+    return <div className="App">{renderContent()}</div>;
 };
 
 export default App;

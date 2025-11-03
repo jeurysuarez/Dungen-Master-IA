@@ -1,4 +1,5 @@
 // Fix: Refactored to use server-side API routes for security.
+// Fix: Corrected import path for types.
 import { Character, Ally, Enemy, DMResponse } from '../types';
 
 export const sendMessageToDM = async (

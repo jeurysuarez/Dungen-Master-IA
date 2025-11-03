@@ -10,7 +10,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onStartNew, onContinue, hasSa
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-stone-200 font-body p-4">
       <div className="text-center mb-12 animate-fadeIn">
-        <h1 className="text-6xl md:text-8xl font-bold text-amber-400 font-title tracking-wider" style={{ textShadow: '0 0 15px #f59e0b' }}>
+        <h1 className="text-5xl sm:text-7xl font-bold text-amber-400 font-title tracking-wider" style={{ textShadow: '0 0 15px #f59e0b' }}>
           Dungeon Master IA
         </h1>
         <p className="text-stone-300 text-lg md:text-xl mt-4">Una Aventura Generada por IA</p>
