@@ -42,8 +42,7 @@ export interface Skill {
   description: string;
   cooldown: number;
   currentCooldown: number;
-  // Fix: Changed JSX.Element to ReactNode to avoid JSX namespace error in a .ts file.
-  icon: ReactNode;
+  iconName: string;
 }
 
 export interface Character {

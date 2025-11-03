@@ -1,7 +1,8 @@
 // Fix: Added content for the Character Creation screen component.
-import React, { useState } from 'react';
-import { Character, Race, CharacterClass } from '../types';
-import { CLASS_DESCRIPTIONS, RACE_DESCRIPTIONS, INITIAL_SKILLS } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { Character, Race, CharacterClass, Skill } from '../types';
+import { CLASS_DESCRIPTIONS, RACE_DESCRIPTIONS, INITIAL_SKILLS, RACE_SKILL_POOLS } from '../constants';
+import { SKILL_ICON_MAP } from './Icons';
 
 interface CharacterCreationProps {
   onCharacterCreate: (character: Character) => void;
@@ -11,7 +12,12 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
   const [name, setName] = useState('');
   const [race, setRace] = useState<Race>(Race.Humano);
   const [characterClass, setCharacterClass] = useState<CharacterClass>(CharacterClass.Guerrero);
+  const [racialSkill, setRacialSkill] = useState<Skill>(RACE_SKILL_POOLS[race][0]);
   const [step, setStep] = useState(1);
+  
+  useEffect(() => {
+    setRacialSkill(RACE_SKILL_POOLS[race][0]);
+  }, [race]);
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -34,7 +40,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
       armorClass: 10,
       inventory: [{ name: "Raciones", quantity: 3, description: "Comida para un día." }],
       spells: characterClass === CharacterClass.Mago ? [{name: "Bola de Fuego", cost: 3, description: "Lanza una pequeña bola de fuego."}] : [],
-      skills: INITIAL_SKILLS[characterClass],
+      skills: [...INITIAL_SKILLS[characterClass], racialSkill],
     };
     onCharacterCreate(newCharacter);
   };
@@ -72,7 +78,35 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
             </div>
           </>
         );
-      case 3: // Class
+      case 3: // Racial Skill
+        return (
+            <>
+                <h2 className="text-3xl font-bold text-amber-400 mb-2 font-title">Habilidad Racial</h2>
+                <p className="text-stone-400 mb-6 max-w-lg text-center">Como {race}, tienes acceso a habilidades únicas. Elige una.</p>
+                <div className="flex flex-col md:flex-row gap-4 w-full max-w-2xl">
+                    {RACE_SKILL_POOLS[race].map((skill) => {
+                        const IconComponent = SKILL_ICON_MAP[skill.iconName];
+                        return (
+                        <button 
+                            key={skill.name} 
+                            onClick={() => setRacialSkill(skill)} 
+                            className={`flex-1 p-4 rounded-lg border-2 text-left transition-colors flex items-center gap-4 ${racialSkill.name === skill.name ? 'bg-purple-700 border-purple-500' : 'bg-slate-800 border-slate-700 hover:border-purple-500'}`}
+                        >
+                            <div className="w-10 h-10 flex-shrink-0">{IconComponent && <IconComponent/>}</div>
+                            <div>
+                                <h3 className="font-bold text-stone-100">{skill.name}</h3>
+                                <p className="text-sm text-stone-300">{skill.description}</p>
+                            </div>
+                        </button>
+                    )})}
+                </div>
+                <div className="flex space-x-4 mt-6">
+                    <button onClick={() => setStep(2)} className="px-8 py-3 bg-slate-700 text-stone-200 font-bold rounded-lg hover:bg-slate-600">Atrás</button>
+                    <button onClick={() => setStep(4)} className="px-8 py-3 bg-purple-700 text-stone-100 font-bold rounded-lg hover:bg-purple-600">Siguiente</button>
+                </div>
+            </>
+        );
+      case 4: // Class
         return (
           <>
             <h2 className="text-3xl font-bold text-amber-400 mb-2 font-title">Elige tu Clase</h2>
@@ -83,7 +117,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onCharacterCreate
               ))}
             </div>
              <div className="flex space-x-4 mt-6">
-                <button onClick={() => setStep(2)} className="px-8 py-3 bg-slate-700 text-stone-200 font-bold rounded-lg hover:bg-slate-600">Atrás</button>
+                <button onClick={() => setStep(3)} className="px-8 py-3 bg-slate-700 text-stone-200 font-bold rounded-lg hover:bg-slate-600">Atrás</button>
                 <button onClick={handleSubmit} className="px-8 py-3 bg-emerald-700 text-white font-bold rounded-lg hover:bg-emerald-600">Comenzar Aventura</button>
             </div>
           </>
