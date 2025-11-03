@@ -14,4 +14,4 @@
 // Este método es solo para pruebas locales y se desaconseja fuertemente
 // para producción. La forma correcta y segura es usar Variables de Entorno en Vercel.
 
-export const API_KEY = "PEGA_AQUÍ_TU_CLAVE_DE_API_DE_GEMINI";
+export const API_KEY = "AIzaSyBz2kp2zaufuNNmViSIAq-s981Esf8hwoM";
