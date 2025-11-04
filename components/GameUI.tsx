@@ -35,10 +35,12 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [lootToShow, setLootToShow] = useState<Item[]>([]);
     const [animatedAction, setAnimatedAction] = useState<string | null>(null);
+    const [isEnemyHit, setIsEnemyHit] = useState(false);
     
     // Audio state
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const prevEnemyHpRef = useRef<number | undefined>();
 
     useEffect(() => {
         if (storyLogRef.current) {
@@ -54,6 +56,16 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
             document.body.classList.add(`ambience-${gameState.ambience}`);
         }
     }, [gameState.ambience]);
+
+    // Enemy hit animation effect
+    useEffect(() => {
+        if (enemy && prevEnemyHpRef.current !== undefined && enemy.hp < prevEnemyHpRef.current) {
+            setIsEnemyHit(true);
+            const timer = setTimeout(() => setIsEnemyHit(false), 300); // Duration matches animation
+            return () => clearTimeout(timer);
+        }
+        prevEnemyHpRef.current = enemy?.hp;
+    }, [enemy]);
 
 
     // TTS effect
@@ -270,7 +282,7 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
 
                 {/* Enemy Info */}
                 {enemy && (
-                    <div className="bg-slate-800/50 p-4 rounded-lg border-2 border-red-500/30 animate-pulse-border">
+                    <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-red-500/30 animate-pulse-border ${isEnemyHit ? 'animate-enemy-hit' : ''}`}>
                         <h3 className="font-title text-xl text-red-400">{enemy.name}</h3>
                         <p className="text-stone-400 text-sm italic mb-2">{enemy.description}</p>
                         <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{enemy.hp} / {enemy.maxHp}</span></div>
