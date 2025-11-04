@@ -2,6 +2,8 @@
 import React, { useState, useEffect, memo, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import PlayerCastEffect from './PlayerCastEffect';
+import { useApiStatus } from '../hooks/useApiStatus';
+import Tooltip from './Tooltip';
 
 interface CharacterPanelProps {
     onOpenMap: () => void;
@@ -22,6 +24,7 @@ const CharacterPanel: React.FC<CharacterPanelProps> = ({ onOpenMap, onOpenSettin
     const { character, map } = gameState!;
     const [isCastingSpell, setIsCastingSpell] = useState(false); // This state could be lifted or managed via context if needed elsewhere
     const [isHealing, setIsHealing] = useState(false);
+    const { apiStatus } = useApiStatus();
 
     const prevHp = usePrevious(character.hp);
 
@@ -51,6 +54,30 @@ const CharacterPanel: React.FC<CharacterPanelProps> = ({ onOpenMap, onOpenSettin
         </div>
     );
 
+    const getStatusIndicator = () => {
+        let bgColor = 'bg-yellow-500';
+        let text = 'Verificando conexión...';
+
+        switch (apiStatus) {
+            case 'ok':
+                bgColor = 'bg-green-500';
+                text = 'Conexión Establecida';
+                break;
+            case 'error':
+                bgColor = 'bg-red-500';
+                text = 'Servicio No Disponible';
+                break;
+        }
+
+        return (
+            <Tooltip text={text}>
+                <div className="flex items-center justify-center">
+                    <span className={`w-3 h-3 rounded-full ${bgColor} ${apiStatus === 'checking' || apiStatus === 'idle' ? 'animate-pulse' : ''}`}></span>
+                </div>
+            </Tooltip>
+        );
+    };
+
     return (
         <div className={`relative bg-slate-800/50 p-4 rounded-lg border-2 border-transparent transition-all ${character.hp / character.maxHp < 0.25 ? 'animate-pulse-border' : ''} ${isHealing ? 'animate-healing-aura' : ''}`}>
             <PlayerCastEffect isActive={isCastingSpell} />
@@ -59,7 +86,8 @@ const CharacterPanel: React.FC<CharacterPanelProps> = ({ onOpenMap, onOpenSettin
                     <h2 className="font-title text-2xl text-amber-400">{character.name}</h2>
                     <p className="text-stone-400">Nivel {character.level} {character.characterClass} {character.race}</p>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex items-center gap-2">
+                    {getStatusIndicator()}
                     {map && (<button onClick={onOpenMap} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">🗺️</button>)}
                     <button onClick={onOpenSettings} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">⚙️</button>
                 </div>

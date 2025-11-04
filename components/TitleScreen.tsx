@@ -4,9 +4,10 @@ interface TitleScreenProps {
   onStartNew: () => void;
   onContinue: () => void;
   hasSavedGame: boolean;
+  onShowInstructions: () => void;
 }
 
-const TitleScreen: React.FC<TitleScreenProps> = ({ onStartNew, onContinue, hasSavedGame }) => {
+const TitleScreen: React.FC<TitleScreenProps> = ({ onStartNew, onContinue, hasSavedGame, onShowInstructions }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-stone-200 font-body p-4">
       <div className="text-center mb-12 animate-fadeIn">
@@ -30,6 +31,12 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onStartNew, onContinue, hasSa
             Continuar Partida
           </button>
         )}
+         <button
+          onClick={onShowInstructions}
+          className="px-8 py-3 bg-slate-800 text-stone-300 font-bold rounded-lg hover:bg-slate-700 transition-transform transform hover:scale-105 shadow-lg border-2 border-slate-900 text-lg"
+        >
+          Cómo Jugar
+        </button>
       </div>
     </div>
   );

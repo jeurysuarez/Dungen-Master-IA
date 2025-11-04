@@ -33,10 +33,26 @@ export const RACE_SKILL_POOLS: Record<Race, [Skill, Skill]> = {
     [Race.Orco]: [intimidationSkill, survivalistSkill],
 };
 
+// New Class Skills
+const powerfulStrike: Skill = { name: "Ataque Poderoso", description: "Realiza un ataque cuerpo a cuerpo con fuerza bruta, sacrificando precisión por daño.", iconName: 'IconSword' };
+const secondWind: Skill = { name: "Segundo Aliento", description: "Una vez por combate, recupera una pequeña cantidad de tu propia salud.", iconName: 'IconHeart' };
+const battleCry: Skill = { name: "Grito de Batalla", description: "Desmoraliza a un enemigo, reduciendo su efectividad en combate por un turno.", iconName: 'IconMegaphone' };
 
-export const INITIAL_SKILLS: Record<CharacterClass, Skill[]> = {
-  [CharacterClass.Guerrero]: [{ name: "Ataque Poderoso", description: "Puedes hacer un ataque más fuerte a costa de precisión.", iconName: 'IconSword' }],
-  [CharacterClass.Mago]: [{ name: "Rayo de Escarcha", description: "Un hechizo menor que ralentiza a un enemigo.", iconName: 'IconSnowflake' }],
-  [CharacterClass.Pícaro]: [{ name: "Ataque Furtivo", description: "Inflige daño extra al atacar desde el sigilo.", iconName: 'IconDagger' }],
-  [CharacterClass.Clérigo]: [{ name: "Curar Heridas Leves", description: "Restaura una pequeña cantidad de salud a un aliado.", iconName: 'IconCross' }],
+const frostbolt: Skill = { name: "Rayo de Escarcha", description: "Un proyectil de hielo que daña y ralentiza a un enemigo.", iconName: 'IconSnowflake' };
+const arcaneShield: Skill = { name: "Escudo Arcano", description: "Invoca una barrera mágica que absorbe una cantidad de daño.", iconName: 'IconShield' };
+const magicMissile: Skill = { name: "Proyectil Mágico", description: "Lanza tres dardos de energía que nunca fallan su objetivo.", iconName: 'IconSparkles' };
+
+const sneakAttack: Skill = { name: "Ataque Furtivo", description: "Inflige daño extra si el enemigo está desprevenido o flanqueado.", iconName: 'IconDagger' };
+const evasion: Skill = { name: "Evasión", description: "Usa tu reacción para reducir a la mitad el daño de un ataque que puedas ver.", iconName: 'IconWind' };
+const distraction: Skill = { name: "Distracción", description: "Crea una distracción para aturdir a un enemigo por un turno.", iconName: 'IconEyeOff' };
+
+const cureWounds: Skill = { name: "Curar Heridas Leves", description: "Toca a una criatura para restaurarle una pequeña cantidad de salud.", iconName: 'IconCross' };
+const blessing: Skill = { name: "Bendición", description: "Otorga a tus aliados una bonificación en sus ataques y salvaciones.", iconName: 'IconStar' };
+const divineSmite: Skill = { name: "Castigo Divino", description: "Imbuye tu arma con energía divina para infligir daño sagrado extra.", iconName: 'IconZap' };
+
+export const CLASS_SKILL_POOLS: Record<CharacterClass, Skill[]> = {
+  [CharacterClass.Guerrero]: [powerfulStrike, secondWind, battleCry],
+  [CharacterClass.Mago]: [frostbolt, arcaneShield, magicMissile],
+  [CharacterClass.Pícaro]: [sneakAttack, evasion, distraction],
+  [CharacterClass.Clérigo]: [cureWounds, blessing, divineSmite],
 };

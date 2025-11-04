@@ -14,6 +14,7 @@ import EnemyPanel from './EnemyPanel';
 import PartyPanel from './PartyPanel';
 import InventoryPanel from './InventoryPanel';
 import ActionsPanel from './ActionsPanel';
+import LevelUpModal from './LevelUpModal';
 
 interface GameUIProps {
     settings: Settings;
@@ -22,9 +23,18 @@ interface GameUIProps {
 
 const AMBIENCE_CLASSES = ['ambience-cave', 'ambience-forest', 'ambience-battle', 'ambience-tavern'];
 
+// A helper hook to get the previous value of a prop or state.
+const usePrevious = <T,>(value: T) => {
+    const ref = useRef<T>();
+    useEffect(() => {
+        ref.current = value;
+    });
+    return ref.current;
+};
+
 const GameUI: React.FC<GameUIProps> = ({ settings, onSettingsChange }) => {
     const { gameState, dispatch } = useGame();
-    const { character, enemy, storyLog, map, party, ambience } = gameState!;
+    const { character, enemy, storyLog, map, party, ambience, isLevelingUp } = gameState!;
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const storyLogRef = useRef<HTMLDivElement>(null);
@@ -38,10 +48,24 @@ const GameUI: React.FC<GameUIProps> = ({ settings, onSettingsChange }) => {
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [lootToShow, setLootToShow] = useState<Item[]>([]);
     const [activeMobileTab, setActiveMobileTab] = useState('estado');
+    const [isScreenShaking, setIsScreenShaking] = useState(false);
     
     // Audio state
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+    const prevCharacterHp = usePrevious(character.hp);
+    const prevEnemyState = usePrevious(enemy);
+
+    useEffect(() => {
+        const playerTookDamage = prevCharacterHp !== undefined && character.hp < prevCharacterHp;
+        // Only shake screen if player took damage AND there was an enemy present in the previous state.
+        if (playerTookDamage && prevEnemyState) {
+            setIsScreenShaking(true);
+            const timer = setTimeout(() => setIsScreenShaking(false), 500);
+            return () => clearTimeout(timer);
+        }
+    }, [character.hp, prevCharacterHp, prevEnemyState]);
 
     useEffect(() => {
         const logEl = storyLogRef.current;
@@ -128,9 +152,10 @@ const GameUI: React.FC<GameUIProps> = ({ settings, onSettingsChange }) => {
     };
 
     return (
-        <main className="min-h-screen bg-slate-950 text-stone-300 font-body p-2 sm:p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-6 md:h-screen md:overflow-y-hidden">
+        <main className={`min-h-screen bg-slate-950 text-stone-300 font-body p-2 sm:p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-6 md:h-screen md:overflow-y-hidden ${isScreenShaking ? 'animate-screen-shake' : ''}`}>
             {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onSettingsChange={onSettingsChange} />}
             {isMapOpen && map && <MapModal mapData={map} onClose={() => setIsMapOpen(false)} />}
+            {isLevelingUp && <LevelUpModal />}
             <LootNotification loot={lootToShow} onDismiss={() => setLootToShow([])} />
             
             <div className="flex-1 flex flex-col h-[95vh] md:h-full">

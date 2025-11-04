@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useContext, ReactNode, Dispatch } from 'react';
-import { GameState, GameAction, DMResponse } from '../types';
+import { GameState, GameAction, DMResponse, Skill } from '../types';
 
 interface GameContextProps {
   gameState: GameState | null;
@@ -9,11 +9,15 @@ interface GameContextProps {
 const GameContext = createContext<GameContextProps | undefined>(undefined);
 
 const gameReducer = (state: GameState | null, action: GameAction): GameState | null => {
+  if (!state) {
+      if (action.type === 'SET_GAME_STATE') return action.payload;
+      return null;
+  }
+
   switch (action.type) {
     case 'SET_GAME_STATE':
       return action.payload;
-    case 'APPEND_STORY':
-      if (!state) return null;
+    case 'APPEND_STORY': {
       const { playerAction, dmResponse } = action.payload;
       
       const newStoryLog = playerAction ? [...state.storyLog, `> ${playerAction}`, dmResponse.storyText] : [...state.storyLog, dmResponse.storyText];
@@ -58,7 +62,20 @@ const gameReducer = (state: GameState | null, action: GameAction): GameState | n
         enemy: newEnemy,
         storyLog: newStoryLog,
         ambience: dmResponse.ambience || state.ambience,
+        isLevelingUp: dmResponse.event === 'level-up' || state.isLevelingUp,
       };
+    }
+    case 'COMPLETE_LEVEL_UP': {
+        const { newSkill } = action.payload;
+        return {
+            ...state,
+            character: {
+                ...state.character,
+                skills: [...state.character.skills, newSkill],
+            },
+            isLevelingUp: false,
+        };
+    }
     default:
       return state;
   }

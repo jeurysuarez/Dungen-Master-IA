@@ -89,10 +89,12 @@ export interface GameState {
   location: string;
   map?: string; // DM can provide a simple text-based map description
   ambience?: string;
+  isLevelingUp?: boolean;
 }
 
 // Action types for the game state reducer
 export type GameAction =
   | { type: 'SET_GAME_STATE'; payload: GameState }
   | { type: 'APPEND_STORY'; payload: { playerAction?: string; dmResponse: DMResponse } }
-  | { type: 'SET_AMBIENCE'; payload: string };
+  | { type: 'SET_AMBIENCE'; payload: string }
+  | { type: 'COMPLETE_LEVEL_UP'; payload: { newSkill: Skill } };

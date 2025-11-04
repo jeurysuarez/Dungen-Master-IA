@@ -7,6 +7,7 @@ import { sendMessageToDM } from './services/geminiService';
 import * as audioService from './services/audioService';
 import { GameProvider, useGame } from './context/GameContext';
 import SaveIndicator from './components/SaveIndicator';
+import InstructionsModal from './components/InstructionsModal';
 
 const SAVE_GAME_KEY = 'dungeonMasterIASaveGame';
 const AUTO_SAVE_INTERVAL = 2 * 60 * 1000; // 2 minutos
@@ -17,6 +18,7 @@ const AppContent: React.FC = () => {
     const [hasSavedGame, setHasSavedGame] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [showSaveIndicator, setShowSaveIndicator] = useState(false);
+    const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
     
     const [settings, setSettings] = useState<Settings>(() => {
         const savedSettings = localStorage.getItem('dungeonMasterIASettings');
@@ -155,7 +157,12 @@ const AppContent: React.FC = () => {
 
     switch (appState) {
         case 'title':
-            return <TitleScreen onStartNew={handleStartNew} onContinue={handleContinue} hasSavedGame={hasSavedGame} />;
+            return (
+                <>
+                    <TitleScreen onStartNew={handleStartNew} onContinue={handleContinue} hasSavedGame={hasSavedGame} onShowInstructions={() => setIsInstructionsOpen(true)} />
+                    {isInstructionsOpen && <InstructionsModal onClose={() => setIsInstructionsOpen(false)} />}
+                </>
+            );
         case 'character-creation':
             return <CharacterCreation onCharacterCreate={handleCharacterCreate} />;
         case 'in-game':
@@ -170,7 +177,7 @@ const AppContent: React.FC = () => {
             setAppState('title');
             return null;
         default:
-            return <TitleScreen onStartNew={handleStartNew} onContinue={handleContinue} hasSavedGame={hasSavedGame} />;
+            return <TitleScreen onStartNew={handleStartNew} onContinue={handleContinue} hasSavedGame={hasSavedGame} onShowInstructions={() => setIsInstructionsOpen(true)} />;
     }
 };
 

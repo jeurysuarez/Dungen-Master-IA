@@ -14,10 +14,8 @@ const EnemyPanel: React.FC = () => {
     const { gameState } = useGame();
     const { enemy } = gameState!;
     const [isEnemyHit, setIsEnemyHit] = useState(false);
-    const [isScreenShaking, setIsScreenShaking] = useState(false);
 
     const prevEnemy = usePrevious<Enemy | null>(enemy);
-    const prevCharacterHp = usePrevious<number>(gameState!.character.hp);
 
     useEffect(() => {
         // Enemy hit animation
@@ -27,16 +25,6 @@ const EnemyPanel: React.FC = () => {
             return () => clearTimeout(timer);
         }
     }, [enemy, prevEnemy]);
-
-    useEffect(() => {
-        // Screen shake on player damage
-        const playerTookDamage = prevCharacterHp !== undefined && gameState!.character.hp < prevCharacterHp;
-        if (playerTookDamage && prevEnemy) {
-            setIsScreenShaking(true);
-            const timer = setTimeout(() => setIsScreenShaking(false), 500);
-            return () => clearTimeout(timer);
-        }
-    }, [gameState!.character.hp, prevCharacterHp, prevEnemy]);
 
 
     const HealthBar = ({ current, max, colorClass }: { current: number; max: number; colorClass: string; }) => (
@@ -48,7 +36,7 @@ const EnemyPanel: React.FC = () => {
     if (!enemy) return null;
 
     return (
-        <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-red-500/30 animate-pulse-border ${isEnemyHit ? 'animate-enemy-hit' : ''} ${isScreenShaking ? 'animate-screen-shake' : ''}`}>
+        <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-red-500/30 animate-pulse-border ${isEnemyHit ? 'animate-enemy-hit' : ''}`}>
             <h3 className="font-title text-xl text-red-400">{enemy.name}</h3>
             <p className="text-stone-400 text-sm italic mb-2">{enemy.description}</p>
             <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{enemy.hp} / {enemy.maxHp}</span></div>
