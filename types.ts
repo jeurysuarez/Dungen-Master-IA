@@ -90,3 +90,9 @@ export interface GameState {
   map?: string; // DM can provide a simple text-based map description
   ambience?: string;
 }
+
+// Action types for the game state reducer
+export type GameAction =
+  | { type: 'SET_GAME_STATE'; payload: GameState }
+  | { type: 'APPEND_STORY'; payload: { playerAction?: string; dmResponse: DMResponse } }
+  | { type: 'SET_AMBIENCE'; payload: string };

@@ -1,28 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, Item, Settings, Skill, Spell } from '../types';
+import { Item, Settings, Skill, Spell } from '../types';
 import { sendMessageToDM, generateSpeech } from '../services/geminiService';
 import { useTypingEffect } from '../hooks/useTypingEffect';
 import { decode, decodeAudioData } from '../utils/audioUtils';
-import Tooltip from './Tooltip';
-import { SKILL_ICON_MAP, IconSpinner, IconUsers, IconSparkles, IconTreasureChest } from './Icons';
+import { IconSpinner, IconUsers, IconSparkles, IconTreasureChest } from './Icons';
 import SettingsModal from './SettingsModal';
 import LootNotification from './LootNotification';
 import MapModal from './MapModal';
 import * as audioService from '../services/audioService';
-import PlayerCastEffect from './PlayerCastEffect';
-
+import { useGame } from '../context/GameContext';
+import CharacterPanel from './CharacterPanel';
+import EnemyPanel from './EnemyPanel';
+import PartyPanel from './PartyPanel';
+import InventoryPanel from './InventoryPanel';
+import ActionsPanel from './ActionsPanel';
 
 interface GameUIProps {
-    gameState: GameState;
-    setGameState: React.Dispatch<React.SetStateAction<GameState | null>>;
     settings: Settings;
     onSettingsChange: (newSettings: Partial<Settings>) => void;
 }
 
 const AMBIENCE_CLASSES = ['ambience-cave', 'ambience-forest', 'ambience-battle', 'ambience-tavern'];
 
-const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSettingsChange }) => {
-    const { character, enemy, storyLog } = gameState;
+const GameUI: React.FC<GameUIProps> = ({ settings, onSettingsChange }) => {
+    const { gameState, dispatch } = useGame();
+    const { character, enemy, storyLog, map, party, ambience } = gameState!;
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const storyLogRef = useRef<HTMLDivElement>(null);
@@ -35,121 +37,41 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [lootToShow, setLootToShow] = useState<Item[]>([]);
-    const [animatedAction, setAnimatedAction] = useState<string | null>(null);
-    const [isEnemyHit, setIsEnemyHit] = useState(false);
     const [activeMobileTab, setActiveMobileTab] = useState('estado');
-    const [isCastingSpell, setIsCastingSpell] = useState(false);
-    const [activeItemMenu, setActiveItemMenu] = useState<{itemName: string; view: 'main' | 'targets'} | null>(null);
-    const [isScreenShaking, setIsScreenShaking] = useState(false);
-    const [healingTargets, setHealingTargets] = useState<string[]>([]);
     
     // Audio state
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
-    const prevGameStateRef = useRef<GameState | null>(null);
 
     useEffect(() => {
-        if (storyLogRef.current) {
-            storyLogRef.current.scrollTop = storyLogRef.current.scrollHeight;
+        const logEl = storyLogRef.current;
+        if (logEl) {
+            // Smart scroll: only scroll to bottom if user is already near the bottom
+            const isScrolledNearBottom = logEl.scrollHeight - logEl.scrollTop <= logEl.clientHeight + 150;
+            if (isScrolledNearBottom) {
+                logEl.scrollTop = logEl.scrollHeight;
+            }
         }
     }, [typedText]);
 
-    // Dynamic Ambiance Effect
     useEffect(() => {
         AMBIENCE_CLASSES.forEach(c => document.body.classList.remove(c));
-        if (gameState.ambience) {
-            document.body.classList.add(`ambience-${gameState.ambience}`);
+        if (ambience) {
+            document.body.classList.add(`ambience-${ambience}`);
         }
-    }, [gameState.ambience]);
-
-    // Combat visual effects trigger
-    useEffect(() => {
-        if (prevGameStateRef.current && gameState) {
-            const prevCharacter = prevGameStateRef.current.character;
-            const currentCharacter = gameState.character;
-            const prevParty = prevGameStateRef.current.party;
-            const currentParty = gameState.party;
-            const prevEnemy = prevGameStateRef.current.enemy;
-
-            // Healing checks
-            const healed: string[] = [];
-            if (currentCharacter.hp > prevCharacter.hp) {
-                healed.push(currentCharacter.name);
-            }
-            currentParty.forEach(ally => {
-                const prevAlly = prevParty.find(p => p.name === ally.name);
-                if (prevAlly && ally.hp > prevAlly.hp) {
-                    healed.push(ally.name);
-                }
-            });
-            if (healed.length > 0) {
-                setHealingTargets(healed);
-            }
-
-            // Damage checks (for screen shake)
-            let tookDamage = false;
-            if (currentCharacter.hp < prevCharacter.hp) {
-                tookDamage = true;
-            }
-            if (!tookDamage) {
-                currentParty.forEach(ally => {
-                    const prevAlly = prevParty.find(p => p.name === ally.name);
-                    if (prevAlly && ally.hp < prevAlly.hp) {
-                        tookDamage = true;
-                    }
-                });
-            }
-            if (tookDamage && prevEnemy) { 
-                setIsScreenShaking(true);
-            }
-
-            // Enemy hit animation
-            if (gameState.enemy && prevEnemy && gameState.enemy.hp < prevEnemy.hp) {
-                setIsEnemyHit(true);
-            }
-        }
-        prevGameStateRef.current = gameState;
-    }, [gameState]);
-    
-    // Timers to turn off animations
-    useEffect(() => {
-        if (isScreenShaking) {
-            const timer = setTimeout(() => setIsScreenShaking(false), 500);
-            return () => clearTimeout(timer);
-        }
-    }, [isScreenShaking]);
-
-    useEffect(() => {
-        if (healingTargets.length > 0) {
-            const timer = setTimeout(() => setHealingTargets([]), 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [healingTargets]);
-
-    useEffect(() => {
-        if (isEnemyHit) {
-            const timer = setTimeout(() => setIsEnemyHit(false), 300);
-            return () => clearTimeout(timer);
-        }
-    }, [isEnemyHit]);
-
+    }, [ambience]);
 
     // TTS effect
     useEffect(() => {
         if (settings.ttsEnabled && textToType && !isLoading) {
             const playNarration = async () => {
-                if (audioSourceRef.current) {
-                    audioSourceRef.current.stop();
-                }
+                if (audioSourceRef.current) audioSourceRef.current.stop();
                 const audioContent = await generateSpeech(textToType);
                 if (audioContent) {
-                    if (!audioContextRef.current) {
-                        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-                    }
+                    if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
                     const ctx = audioContextRef.current;
-                    if (ctx.state === 'suspended') {
-                        ctx.resume();
-                    }
+                    if (ctx.state === 'suspended') ctx.resume();
+                    
                     const decodedData = decode(audioContent);
                     const audioBuffer = await decodeAudioData(decodedData, ctx, 24000, 1);
                     const source = ctx.createBufferSource();
@@ -165,18 +87,10 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
                 }
             };
             playNarration();
-        } else {
-             if (audioSourceRef.current) {
-                audioSourceRef.current.stop();
-             }
+        } else if (audioSourceRef.current) {
+            audioSourceRef.current.stop();
         }
-
-        return () => {
-            if (audioSourceRef.current) {
-                audioSourceRef.current.stop();
-            }
-        };
-
+        return () => { if (audioSourceRef.current) audioSourceRef.current.stop(); };
     }, [textToType, settings.ttsEnabled, settings.volume, isLoading]);
     
     const handleSubmit = async (e: React.FormEvent) => {
@@ -187,125 +101,20 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
         setInput('');
         setIsLoading(true);
         audioService.playClick();
-        setActiveItemMenu(null); // Close item menu on submit
 
-        const newStoryLog = [...storyLog, `> ${playerAction}`];
-        setGameState(prev => prev ? { ...prev, storyLog: newStoryLog } : null);
+        const response = await sendMessageToDM(playerAction, character, party, enemy, storyLog);
         
-        const response = await sendMessageToDM(playerAction, character, gameState.party, enemy, storyLog);
-
-        setGameState(prev => {
-            if (!prev) return null;
-            
-            let newCharacter = { ...prev.character };
-            if (response.characterUpdate) {
-                const { skills, spells, inventory, ...scalarUpdates } = response.characterUpdate;
-                newCharacter = { ...newCharacter, ...scalarUpdates };
-            }
-
-            let newEnemy = prev.enemy;
-            if (response.newEnemy) {
-                newEnemy = response.newEnemy;
-                audioService.playPlayerHit();
-            } else if (response.removeEnemy) {
-                newEnemy = null;
-            }
-            
-            let newParty = prev.party;
-            if (response.newPartyMembers && response.newPartyMembers.length > 0) {
-                newParty = [...newParty, ...response.newPartyMembers];
-            }
-             if (response.partyUpdate) {
-                newParty = newParty.map(ally => {
-                    const update = response.partyUpdate?.find(u => u.name === ally.name);
-                    return update ? { ...ally, hp: update.hp, maxHp: update.maxHp } : ally;
-                });
-            }
-
-            if(response.loot && response.loot.length > 0) {
-                setLootToShow(response.loot);
-                audioService.playHeal();
-                const updatedInventory = [...newCharacter.inventory];
-                response.loot.forEach(lootItem => {
-                    const existingItem = updatedInventory.find(i => i.name === lootItem.name);
-                    if (existingItem) {
-                        existingItem.quantity += lootItem.quantity;
-                    } else {
-                        updatedInventory.push(lootItem);
-                    }
-                });
-                newCharacter.inventory = updatedInventory;
-            }
-            
-            if (response.event === 'player-dead') {
-                audioService.playPlayerHit();
-            }
-            if (response.event === 'level-up') {
-                audioService.playHeal();
-            }
-
-            return {
-                ...prev,
-                character: newCharacter,
-                enemy: newEnemy,
-                party: newParty,
-                ambience: response.ambience || prev.ambience,
-                storyLog: [...newStoryLog, response.storyText],
-            };
-        });
-
+        if (response.loot && response.loot.length > 0) {
+            setLootToShow(response.loot);
+            audioService.playHeal();
+        }
+        if (response.event === 'player-dead') audioService.playPlayerHit();
+        if (response.event === 'level-up') audioService.playHeal();
+        
+        dispatch({ type: 'APPEND_STORY', payload: { playerAction, dmResponse: response }});
         setIsLoading(false);
     };
-
-    const handleAbilityClick = (ability: Skill | Spell, type: 'skill' | 'spell') => {
-        if (isLoading) return;
-
-        if (type === 'spell' && 'cost' in ability) {
-            if (character.mp < ability.cost) return;
-            audioService.playSpell();
-            setIsCastingSpell(true);
-            setTimeout(() => setIsCastingSpell(false), 1000); // Duration matches animation
-        } else {
-            audioService.playAttack();
-        }
-
-        setAnimatedAction(ability.name);
-        setInput(`Uso ${type === 'skill' ? 'la habilidad' : 'el hechizo'}: ${ability.name}`);
-        
-        setTimeout(() => setAnimatedAction(null), 600);
-    };
-
-    const handleItemClick = (item: Item) => {
-        if (activeItemMenu?.itemName === item.name) {
-            setActiveItemMenu(null);
-        } else {
-            setActiveItemMenu({ itemName: item.name, view: 'main' });
-        }
-    };
     
-    const handleItemAction = (action: 'use_self' | 'examine' | 'use_on_target', item: Item, target?: string) => {
-        switch(action) {
-            case 'use_self':
-                setInput(`Uso ${item.name}`);
-                break;
-            case 'examine':
-                setInput(`Examino ${item.name}`);
-                break;
-            case 'use_on_target':
-                if (target) {
-                    setInput(`Uso ${item.name} en ${target}`);
-                }
-                break;
-        }
-        setActiveItemMenu(null);
-    };
-
-    const HealthBar = ({ current, max, colorClass }: { current: number; max: number; colorClass: string; }) => (
-        <div className="w-full bg-slate-700 rounded-full h-2.5">
-            <div className={`${colorClass} h-2.5 rounded-full transition-all duration-500`} style={{ width: `${(current / max) * 100}%` }}></div>
-        </div>
-    );
-
     const renderStoryLog = (log: string[]) => {
         return log.map((text, index) => {
             const isPlayer = text.startsWith('>');
@@ -318,157 +127,12 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
         });
     };
 
-    const CharacterPanel = (
-        <div className={`relative bg-slate-800/50 p-4 rounded-lg border-2 border-transparent transition-all ${character.hp / character.maxHp < 0.25 ? 'animate-pulse-border' : ''} ${healingTargets.includes(character.name) ? 'animate-healing-aura' : ''}`}>
-            <PlayerCastEffect isActive={isCastingSpell} />
-            <div className="flex justify-between items-start">
-                <div>
-                    <h2 className="font-title text-2xl text-amber-400">{character.name}</h2>
-                    <p className="text-stone-400">Nivel {character.level} {character.characterClass} {character.race}</p>
-                </div>
-                <div className="flex gap-1">
-                    {gameState.map && (<button onClick={() => setIsMapOpen(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">🗺️</button>)}
-                    <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">⚙️</button>
-                </div>
-            </div>
-            <div className="mt-4 space-y-3">
-                <div>
-                    <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{character.hp} / {character.maxHp}</span></div>
-                    <HealthBar current={character.hp} max={character.maxHp} colorClass="bg-red-500" />
-                </div>
-                {character.maxMp > 0 && (
-                    <div>
-                        <div className="flex justify-between text-sm mb-1"><span>MP</span><span>{character.mp} / {character.maxMp}</span></div>
-                        <HealthBar current={character.mp} max={character.maxMp} colorClass="bg-blue-500" />
-                    </div>
-                )}
-                <div>
-                    <div className="flex justify-between text-sm mb-1"><span>XP</span><span>{character.xp} / {character.xpToNextLevel}</span></div>
-                    <HealthBar current={character.xp} max={character.xpToNextLevel} colorClass="bg-yellow-500" />
-                </div>
-            </div>
-        </div>
-    );
-    
-    const EnemyPanel = enemy && (
-        <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-red-500/30 animate-pulse-border ${isEnemyHit ? 'animate-enemy-hit' : ''}`}>
-            <h3 className="font-title text-xl text-red-400">{enemy.name}</h3>
-            <p className="text-stone-400 text-sm italic mb-2">{enemy.description}</p>
-            <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{enemy.hp} / {enemy.maxHp}</span></div>
-            <HealthBar current={enemy.hp} max={enemy.maxHp} colorClass="bg-red-500" />
-        </div>
-    );
-
-    const PartyPanel = gameState.party.length > 0 && (
-        <div className="bg-slate-800/50 p-4 rounded-lg">
-            <h3 className="font-title text-xl text-amber-400 mb-3">Grupo</h3>
-            <div className="space-y-3">
-                {gameState.party.map(ally => (
-                    <div key={ally.name} className={`rounded-md p-2 -m-2 transition-all ${healingTargets.includes(ally.name) ? 'animate-healing-aura' : ''}`}>
-                        <p className="font-bold text-stone-300">{ally.name} <span className="text-sm font-normal text-stone-400">({ally.characterClass})</span></p>
-                        <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{ally.hp} / {ally.maxHp}</span></div>
-                        <HealthBar current={ally.hp} max={ally.maxHp} colorClass="bg-green-500" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-
-    const InventoryPanel = (
-         <div className="bg-slate-800/50 p-4 rounded-lg">
-            <h3 className="font-title text-xl text-amber-400 mb-2">Inventario</h3>
-            {character.inventory.length > 0 ? (
-                <div className="space-y-1">
-                    {character.inventory.map((item) => (
-                        <React.Fragment key={item.name}>
-                            <Tooltip text={
-                                <div className="text-left">
-                                    <h4 className="font-bold text-stone-100">{item.name}</h4>
-                                    <p className="text-sm text-stone-300">{item.description}</p>
-                                </div>
-                            }>
-                                <button onClick={() => handleItemClick(item)} className="flex justify-between w-full p-1 text-left rounded hover:bg-slate-700/50 transition-colors">
-                                    <span className="text-stone-300">{item.name}</span>
-                                    <span className="text-stone-400 font-mono">x{item.quantity}</span>
-                                </button>
-                            </Tooltip>
-                             {activeItemMenu?.itemName === item.name && (
-                                <div className="item-action-menu">
-                                    {activeItemMenu.view === 'main' ? (
-                                        <>
-                                            <button onClick={() => handleItemAction('use_self', item)} className="item-action-button">Usar</button>
-                                            <button onClick={() => setActiveItemMenu({ itemName: item.name, view: 'targets' })} className="item-action-button">Usar en...</button>
-                                            <button onClick={() => handleItemAction('examine', item)} className="item-action-button">Examinar</button>
-                                        </>
-                                    ) : ( // view is 'targets'
-                                        <>
-                                            <button onClick={() => handleItemAction('use_on_target', item, character.name)} className="item-action-button">{character.name} (Yo)</button>
-                                            {gameState.party.map(ally => (
-                                                <button key={ally.name} onClick={() => handleItemAction('use_on_target', item, ally.name)} className="item-action-button">{ally.name}</button>
-                                            ))}
-                                            <button onClick={() => handleItemAction('use_on_target', item, 'el entorno')} className="item-action-button">Entorno</button>
-                                            <button onClick={() => setActiveItemMenu({ itemName: item.name, view: 'main' })} className="item-action-cancel-button">Atrás</button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        </React.Fragment>
-                    ))}
-                </div>
-            ) : (
-                <p className="text-stone-500 italic">Vacío</p>
-            )}
-        </div>
-    );
-
-    const ActionsPanel = (
-         <div className="bg-slate-800/50 p-4 rounded-lg">
-            <h3 className="font-title text-xl text-amber-400 mb-3">Habilidades y Hechizos</h3>
-            <div className="grid grid-cols-3 gap-3">
-                 {character.skills.map((skill) => {
-                    const IconComponent = SKILL_ICON_MAP[skill.iconName];
-                    const isAnimating = animatedAction === skill.name;
-                    return (
-                        <Tooltip key={skill.name} text={
-                            <div className="text-left">
-                                <h4 className="font-bold text-stone-100">{skill.name}</h4>
-                                <p className="text-sm text-stone-300">{skill.description}</p>
-                            </div>
-                        }>
-                            <button onClick={() => handleAbilityClick(skill, 'skill')} disabled={isLoading} className={`relative p-4 rounded-lg border-2 border-slate-700 hover:bg-slate-700/50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isAnimating ? 'animate-skill-cast' : ''}`}>
-                                {IconComponent && <IconComponent className="w-8 h-8 text-stone-300" />}
-                            </button>
-                        </Tooltip>
-                    );
-                })}
-                {character.spells.map((spell) => {
-                    const hasEnoughMana = character.mp >= spell.cost;
-                    const isAnimating = animatedAction === spell.name;
-                    return (
-                        <Tooltip key={spell.name} text={
-                            <div className="text-left">
-                                <h4 className="font-bold text-stone-100">{spell.name} ({spell.cost} MP)</h4>
-                                <p className="text-sm text-stone-300">{spell.description}</p>
-                            </div>
-                        }>
-                            <button onClick={() => handleAbilityClick(spell, 'spell')} disabled={isLoading || !hasEnoughMana} className={`relative p-4 rounded-lg border-2 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isAnimating ? 'animate-skill-cast' : ''} ${hasEnoughMana ? 'border-purple-700 hover:bg-purple-900/50' : 'border-slate-700'}`}>
-                                <span className={`text-3xl font-bold ${hasEnoughMana ? 'text-purple-400' : 'text-slate-500'}`}>✨</span>
-                            </button>
-                        </Tooltip>
-                    );
-                })}
-            </div>
-        </div>
-    );
-
-
     return (
-        <main className={`min-h-screen bg-slate-950 text-stone-300 font-body p-2 sm:p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-6 md:h-screen md:overflow-y-hidden transition-transform duration-500 ${isScreenShaking ? 'animate-screen-shake' : ''}`}>
+        <main className="min-h-screen bg-slate-950 text-stone-300 font-body p-2 sm:p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-6 md:h-screen md:overflow-y-hidden">
             {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onSettingsChange={onSettingsChange} />}
-            {isMapOpen && gameState.map && <MapModal mapData={gameState.map} onClose={() => setIsMapOpen(false)} />}
+            {isMapOpen && map && <MapModal mapData={map} onClose={() => setIsMapOpen(false)} />}
             <LootNotification loot={lootToShow} onDismiss={() => setLootToShow([])} />
             
-            {/* Left Column: Story & Input */}
             <div className="flex-1 flex flex-col h-[95vh] md:h-full">
                 <div ref={storyLogRef} className="flex-1 bg-slate-900/80 p-4 sm:p-6 rounded-t-lg overflow-y-auto story-scrollbar border-2 border-b-0 border-slate-800">
                     {renderStoryLog(storyLog.slice(0, -1))}
@@ -476,9 +140,7 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
                 </div>
                 <form onSubmit={handleSubmit} className="flex items-center bg-slate-800 p-2 rounded-b-lg border-2 border-t-0 border-slate-700">
                     <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        type="text" value={input} onChange={(e) => setInput(e.target.value)}
                         placeholder={isLoading ? "El DM está pensando..." : "¿Qué haces ahora?"}
                         className="flex-1 bg-transparent text-stone-100 p-2 focus:outline-none placeholder-stone-500"
                         disabled={isLoading}
@@ -489,52 +151,37 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
                 </form>
             </div>
 
-            {/* Right Column: Character Stats, Inventory, etc. */}
             <div className="w-full md:w-1/3 lg:w-1/4 md:h-full md:overflow-y-auto story-scrollbar">
-                {/* Mobile Tab Navigation */}
                 <div className="md:hidden flex justify-around p-1 mb-4 bg-slate-900 rounded-lg border border-slate-700 sticky top-2 z-10">
                     <button onClick={() => setActiveMobileTab('estado')} className={`flex-1 flex flex-col items-center p-2 rounded-md border border-transparent ${activeMobileTab === 'estado' ? 'mobile-tab-active' : ''}`}>
-                        <IconUsers className="w-6 h-6 mb-1"/>
-                        <span className="text-xs">Estado</span>
+                        <IconUsers className="w-6 h-6 mb-1"/> <span className="text-xs">Estado</span>
                     </button>
                     <button onClick={() => setActiveMobileTab('acciones')} className={`flex-1 flex flex-col items-center p-2 rounded-md border border-transparent ${activeMobileTab === 'acciones' ? 'mobile-tab-active' : ''}`}>
-                        <IconSparkles className="w-6 h-6 mb-1"/>
-                        <span className="text-xs">Acciones</span>
+                        <IconSparkles className="w-6 h-6 mb-1"/> <span className="text-xs">Acciones</span>
                     </button>
                      <button onClick={() => setActiveMobileTab('inventario')} className={`flex-1 flex flex-col items-center p-2 rounded-md border border-transparent ${activeMobileTab === 'inventario' ? 'mobile-tab-active' : ''}`}>
-                        <IconTreasureChest className="w-6 h-6 mb-1"/>
-                        <span className="text-xs">Inventario</span>
+                        <IconTreasureChest className="w-6 h-6 mb-1"/> <span className="text-xs">Inventario</span>
                     </button>
                 </div>
                 
-                {/* Desktop View */}
                 <div className="hidden md:flex flex-col space-y-4">
-                    {CharacterPanel}
-                    {EnemyPanel}
-                    {PartyPanel}
-                    {InventoryPanel}
-                    {ActionsPanel}
+                    <CharacterPanel onOpenMap={() => setIsMapOpen(true)} onOpenSettings={() => setIsSettingsOpen(true)} />
+                    <EnemyPanel />
+                    <PartyPanel />
+                    <InventoryPanel setPlayerInput={setInput} />
+                    <ActionsPanel setPlayerInput={setInput} isLoading={isLoading} />
                 </div>
 
-                {/* Mobile View */}
                 <div className="md:hidden space-y-4">
                     {activeMobileTab === 'estado' && (
                         <div className="animate-fadeIn space-y-4">
-                            {CharacterPanel}
-                            {EnemyPanel}
-                            {PartyPanel}
+                            <CharacterPanel onOpenMap={() => setIsMapOpen(true)} onOpenSettings={() => setIsSettingsOpen(true)} />
+                            <EnemyPanel />
+                            <PartyPanel />
                         </div>
                     )}
-                     {activeMobileTab === 'acciones' && (
-                        <div className="animate-fadeIn">
-                            {ActionsPanel}
-                        </div>
-                    )}
-                    {activeMobileTab === 'inventario' && (
-                        <div className="animate-fadeIn">
-                            {InventoryPanel}
-                        </div>
-                    )}
+                     {activeMobileTab === 'acciones' && <div className="animate-fadeIn"><ActionsPanel setPlayerInput={setInput} isLoading={isLoading} /></div>}
+                    {activeMobileTab === 'inventario' && <div className="animate-fadeIn"><InventoryPanel setPlayerInput={setInput} /></div>}
                 </div>
             </div>
         </main>

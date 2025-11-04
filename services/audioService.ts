@@ -21,7 +21,8 @@ export const setVolume = (volume: number) => {
     }
 };
 
-const playSound = (type: OscillatorType, frequency: number, duration: number, attack: number = 0.01, decay: number = 0.1) => {
+// Fix: Removed the unused 'decay' parameter to resolve a type error in a function call on line 89.
+const playSound = (type: OscillatorType, frequency: number, duration: number, attack: number = 0.01, addVariation: boolean = false) => {
     const { audioContext: ctx, masterGain } = getAudioContext();
     if (!ctx || !masterGain) return;
     
@@ -31,9 +32,11 @@ const playSound = (type: OscillatorType, frequency: number, duration: number, at
 
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
+    
+    const freqVariation = addVariation ? (Math.random() - 0.5) * 20 : 0;
 
     oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+    oscillator.frequency.setValueAtTime(frequency + freqVariation, ctx.currentTime);
 
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
     gainNode.gain.linearRampToValueAtTime(0.7, ctx.currentTime + attack);
@@ -67,7 +70,8 @@ const playNoise = (duration: number) => {
 
     const bandpass = ctx.createBiquadFilter();
     bandpass.type = 'bandpass';
-    bandpass.frequency.value = 1000;
+    const freqVariation = (Math.random() - 0.5) * 400;
+    bandpass.frequency.value = 1000 + freqVariation;
 
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
@@ -83,7 +87,7 @@ const playNoise = (duration: number) => {
 };
 
 
-export const playClick = () => playSound('sine', 440, 0.1, 0.01);
+export const playClick = () => playSound('sine', 440, 0.1, 0.01, true);
 export const playAttack = () => playNoise(0.3);
 export const playSpell = () => playSound('triangle', 880, 0.4, 0.02);
 export const playHeal = () => playSound('sine', 660, 0.5, 0.1);
