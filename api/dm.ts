@@ -4,57 +4,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Character, Ally, Enemy, Race, CharacterClass, Spell, Skill } from '../types';
 import { DM_SYSTEM_PROMPT } from '../prompts';
 
-// Helper to construct the detailed prompt for the Gemini model
-const buildPrompt = (
-    message: string,
-    character: Character,
-    party: Ally[],
-    enemy: Enemy | null,
-    storyLog: string[]
-): string => {
-    // Character details
-    const charDetails = `
-Tu personaje:
-- Nombre: ${character.name}
-- Raza: ${character.race}
-- Clase: ${character.characterClass}
-- Nivel: ${character.level}
-- HP: ${character.hp}/${character.maxHp}
-- MP: ${character.mp}/${character.maxMp}
-- Habilidades: ${character.skills.map(s => s.name).join(', ')}
-- Hechizos: ${character.spells.map(s => s.name).join(', ') || 'Ninguno'}
-- Inventario: ${character.inventory.map(i => `${i.name} (x${i.quantity})`).join(', ')}
-    `.trim();
-
-    // Party details
-    const partyDetails = party.length > 0
-        ? `Tus aliados: \n${party.map(p => `- ${p.name} (${p.characterClass}), HP: ${p.hp}/${p.maxHp}`).join('\n')}`
-        : "Estás solo.";
-
-    // Enemy details
-    const enemyDetails = enemy
-        ? `Enemigo actual: \n- ${enemy.name}, HP: ${enemy.hp}/${enemy.maxHp}. Descripción: ${enemy.description}`
-        : "No hay enemigos presentes.";
-
-    // Story context
-    const storyContext = `
-Resumen de la historia hasta ahora (lo más reciente al final):
-${storyLog.slice(-5).join('\n')}
-    `.trim();
-
-    // The player's action
-    const playerAction = `Acción del jugador: "${message}"`;
-
-    return `
-${charDetails}
-${partyDetails}
-${enemyDetails}
-${storyContext}
-${playerAction}
-    `.trim();
-};
-
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
@@ -67,13 +16,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const { message, character, party, enemy, storyLog } = req.body;
 
-        const prompt = buildPrompt(message, character, party, enemy, storyLog);
-
+        const gameContext = {
+            character,
+            party,
+            enemy,
+            storyLog: storyLog.slice(-5) // Send only the last 5 entries for brevity
+        };
+        
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro", // Using a more powerful model for complex state management
-            contents: prompt,
+            model: "gemini-2.5-pro",
+            contents: {
+                parts: [
+                    { text: `GAME_CONTEXT:\n${JSON.stringify(gameContext)}` },
+                    { text: `PLAYER_ACTION:\n${message}` }
+                ]
+            },
             config: {
                 systemInstruction: DM_SYSTEM_PROMPT,
                 responseMimeType: "application/json",
