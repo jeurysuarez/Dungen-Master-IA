@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TitleScreen from './components/TitleScreen';
 import CharacterCreation from './components/CharacterCreation';
 import GameUI from './components/GameUI';
@@ -7,6 +7,7 @@ import { sendMessageToDM } from './services/geminiService';
 import * as audioService from './services/audioService';
 
 const SAVE_GAME_KEY = 'dungeonMasterIASaveGame';
+const AUTO_SAVE_INTERVAL = 2 * 60 * 1000; // 2 minutos
 
 const App: React.FC = () => {
     const [gameState, setGameState] = useState<GameState | null>(null);
@@ -22,6 +23,12 @@ const App: React.FC = () => {
             textSpeed: 50,
         };
     });
+
+    // Ref to hold the latest game state for the auto-save interval
+    const gameStateRef = useRef(gameState);
+    useEffect(() => {
+        gameStateRef.current = gameState;
+    }, [gameState]);
 
     useEffect(() => {
         const savedGame = localStorage.getItem(SAVE_GAME_KEY);
@@ -43,16 +50,71 @@ const App: React.FC = () => {
             setHasSavedGame(true);
         }
     }, []);
+
+    // Periodic auto-save effect
+    useEffect(() => {
+        if (appState !== 'in-game') {
+            return; // Don't run the timer if not in game
+        }
+
+        const intervalId = setInterval(() => {
+            // Use the ref to get the latest state without creating a stale closure
+            if (gameStateRef.current) {
+                saveGame(gameStateRef.current);
+            }
+        }, AUTO_SAVE_INTERVAL);
+
+        // Cleanup function to clear the interval when the component unmounts or appState changes
+        return () => {
+            clearInterval(intervalId);
+        };
+    }, [appState, saveGame]);
     
     const handleStartNew = () => {
         setAppState('character-creation');
     };
 
+    const hydrateGameState = (savedData: any): GameState | null => {
+        if (!savedData || typeof savedData !== 'object' || !savedData.character || !Array.isArray(savedData.storyLog)) {
+            console.warn("Invalid save data structure.", savedData);
+            return null; // Invalid save
+        }
+        // This ensures that if the GameState interface changes, old saves won't break the app.
+        const hydratedState: GameState = {
+            character: savedData.character,
+            party: savedData.party || [],
+            enemy: savedData.enemy || null,
+            storyLog: savedData.storyLog,
+            location: savedData.location || "Ubicación desconocida",
+            map: savedData.map, // can be undefined
+            ambience: savedData.ambience || 'tavern',
+        };
+        return hydratedState;
+    };
+
+
     const handleContinue = () => {
-        const savedGame = localStorage.getItem(SAVE_GAME_KEY);
-        if (savedGame) {
-            setGameState(JSON.parse(savedGame));
-            setAppState('in-game');
+        try {
+            const savedGame = localStorage.getItem(SAVE_GAME_KEY);
+            if (savedGame) {
+                const parsedGame = JSON.parse(savedGame);
+                const hydratedGame = hydrateGameState(parsedGame);
+
+                if (hydratedGame) {
+                    setGameState(hydratedGame);
+                    setAppState('in-game');
+                } else {
+                    console.error("Save game data is corrupted or invalid.");
+                    localStorage.removeItem(SAVE_GAME_KEY);
+                    setHasSavedGame(false);
+                    alert("Tu partida guardada parece estar corrupta y ha sido eliminada. Por favor, comienza una nueva aventura.");
+                }
+            }
+        } catch (error) {
+            console.error("Failed to parse or load saved game:", error);
+            localStorage.removeItem(SAVE_GAME_KEY);
+            setHasSavedGame(false);
+            alert("Error al cargar la partida. Tu archivo de guardado podría estar dañado y ha sido eliminado.");
         }
     };
 
@@ -65,6 +127,7 @@ const App: React.FC = () => {
             enemy: null,
             storyLog: [initialLog],
             location: "Una posada con poca luz",
+            ambience: 'tavern', // Starting ambiance
         };
 
         const response = await sendMessageToDM(
@@ -77,6 +140,7 @@ const App: React.FC = () => {
 
         setGameState({
             ...newGameState,
+            ambience: response.ambience || newGameState.ambience,
             storyLog: [initialLog, response.storyText],
         });
         
@@ -84,6 +148,7 @@ const App: React.FC = () => {
         setIsLoading(false);
     };
     
+    // Save game on every state change (for immediate persistence after actions)
     useEffect(() => {
         if (appState === 'in-game' && gameState) {
             saveGame(gameState);

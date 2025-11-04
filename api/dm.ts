@@ -1,7 +1,7 @@
 // Fix: Implemented the serverless API route for the Dungeon Master AI.
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Character, Ally, Enemy } from '../types';
+import { Character, Ally, Enemy, Race, CharacterClass, Spell, Skill } from '../types';
 
 // Helper to construct the detailed prompt for the Gemini model
 const buildPrompt = (
@@ -80,14 +80,14 @@ Eres un Dungeon Master de IA para un juego de rol de texto. Tu objetivo es crear
 Reglas:
 1. Responde en español.
 2. Sé descriptivo y evocador. Pinta una imagen vívida del mundo.
-3. Avanza la historia basándote en las acciones del jugador. Introduce nuevos desafíos, personajes (PNJs), y misterios.
-4. Si hay un enemigo, narra el resultado del combate.
-5. Gestiona las consecuencias. Las acciones del jugador deben tener un impacto en el mundo.
-6. Si el jugador hace algo inteligente, recompénsalo. Si hace algo tonto, debe haber consecuencias.
-7. Mantén el tono de fantasía épica, pero con momentos de humor o intriga si es apropiado.
-8. Controla a los PNJs y enemigos de forma creíble.
-9. Al final de tu narración, presenta siempre una situación o pregunta clara que invite al jugador a actuar. (Ej: "¿Qué haces?", "El camino se bifurca. ¿Vas a la izquierda o a la derecha?").
-10. La respuesta SIEMPRE debe ser un único objeto JSON, sin ningún texto o formato adicional como \`\`\`json.
+3. Avanza la historia basándote en las acciones del jugador. Introduce nuevos PNJs y misterios.
+4. Gestiona las consecuencias. Las acciones del jugador deben tener un impacto.
+5. Si el jugador hace algo inteligente, recompénsalo. Si hace algo tonto, debe haber consecuencias.
+6. Mantén el tono de fantasía épica.
+7. Al final de tu narración, presenta siempre una situación o pregunta clara que invite al jugador a actuar. (Ej: "¿Qué haces?").
+8. La respuesta SIEMPRE debe ser un único objeto JSON, sin ningún texto o formato adicional como \`\`\`json.
+9. Usa la propiedad 'ambience' para establecer el tono. Debe ser una palabra clave en inglés, en snake_case. Ejemplos: 'dark_cave', 'sunny_forest', 'tense_battle', 'cozy_tavern'.
+10. Si un nuevo aliado se une al grupo, defínelo en 'newPartyMembers'.
                 `.trim(),
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -117,6 +117,28 @@ Reglas:
                                 }
                             }
                         },
+                        newPartyMembers: {
+                            type: Type.ARRAY,
+                            description: "Nuevos aliados que se unen al grupo. Nulo si no se une nadie.",
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    name: { type: Type.STRING },
+                                    race: { type: Type.STRING, enum: Object.values(Race) },
+                                    characterClass: { type: Type.STRING, enum: Object.values(CharacterClass) },
+                                    level: { type: Type.NUMBER },
+                                    hp: { type: Type.NUMBER },
+                                    maxHp: { type: Type.NUMBER },
+                                    mp: { type: Type.NUMBER },
+                                    maxMp: { type: Type.NUMBER },
+                                    attackBonus: { type: Type.NUMBER },
+                                    armorClass: { type: Type.NUMBER },
+                                    spells: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, cost: {type: Type.NUMBER}, description: {type: Type.STRING}}}},
+                                    skills: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: {type: Type.STRING}, description: {type: Type.STRING}, iconName: {type: Type.STRING}}}},
+                                    isPlayer: {type: Type.BOOLEAN, description: "Siempre debe ser 'false' para los aliados."},
+                                }
+                            }
+                        },
                         newEnemy: {
                             type: Type.OBJECT,
                             description: "Un nuevo enemigo que aparece. Nulo si no aparece ninguno.",
@@ -141,7 +163,8 @@ Reglas:
                                 }
                             }
                         },
-                        event: { type: Type.STRING, description: "Eventos especiales como 'battle-won', 'player-dead', 'level-up'." }
+                        event: { type: Type.STRING, description: "Eventos especiales como 'battle-won', 'player-dead', 'level-up'." },
+                        ambience: { type: Type.STRING, description: "Una sola palabra clave en inglés (snake_case) que describa el ambiente. Ej: 'dark_cave', 'sunny_forest', 'tense_battle', 'cozy_tavern'." },
                     },
                     required: ["storyText"]
                 }
@@ -155,6 +178,6 @@ Reglas:
     } catch (error) {
         console.error('Error in /api/dm:', error);
         // Provide a more helpful in-game error message
-        res.status(500).json({ storyText: "Una niebla arcana interfiere con la mente del Dungeon Master. No puede procesar tu petición en este momento. Inténtalo de nuevo." });
+        res.status(500).json({ storyText: "[ERROR] Una niebla arcana interfiere con la mente del Dungeon Master. No puede procesar tu petición en este momento. Inténtalo de nuevo." });
     }
 }

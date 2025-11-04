@@ -9,6 +9,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style type="text/tailwindcss">
+    @layer base {
+      body {
+        @apply bg-slate-900 transition-colors duration-1000 ease-in-out;
+      }
+    }
     @layer utilities {
       .story-scrollbar::-webkit-scrollbar {
         width: 8px;
@@ -37,6 +42,22 @@
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
+      .animate-skill-cast {
+        animation: skill-cast-glow 0.6s ease-out forwards;
+      }
+      @keyframes skill-cast-glow {
+        0% {
+          box-shadow: 0 0 0 0px rgba(192, 132, 252, 0.7); /* purple-400/70 */
+        }
+        100% {
+          box-shadow: 0 0 0 30px rgba(192, 132, 252, 0);
+        }
+      }
+      /* Dynamic Ambiance Classes */
+      .ambience-cave { @apply bg-slate-800; }
+      .ambience-forest { @apply bg-cyan-950; }
+      .ambience-battle { @apply bg-rose-950; }
+      .ambience-tavern { @apply bg-orange-950; }
     }
   </style>
   <script>
@@ -50,6 +71,15 @@
           colors: {
             slate: {
               950: '#0f172a'
+            },
+            cyan: {
+              950: '#083344'
+            },
+            rose: {
+              950: '#4c0519'
+            },
+            orange: {
+              950: '#431407'
             }
           }
         },
@@ -68,7 +98,7 @@
     }
   </script>
 </head>
-<body class="bg-slate-900">
+<body>
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

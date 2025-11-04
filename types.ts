@@ -67,10 +67,12 @@ export interface DMResponse {
   storyText: string;
   characterUpdate?: Partial<Character>;
   partyUpdate?: { name: string, hp: number, maxHp: number }[]; // Simplified update for allies
+  newPartyMembers?: Ally[];
   newEnemy?: Enemy;
   removeEnemy?: boolean;
   loot?: Item[];
   event?: 'battle-won' | 'player-dead' | 'level-up';
+  ambience?: string; // e.g., 'cave', 'forest', 'battle'
 }
 
 export interface Settings {
@@ -86,4 +88,5 @@ export interface GameState {
   storyLog: string[];
   location: string;
   map?: string; // DM can provide a simple text-based map description
+  ambience?: string;
 }

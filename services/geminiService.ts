@@ -28,7 +28,7 @@ export const sendMessageToDM = async (
     } catch (error) {
         console.error("Error calling DM API endpoint:", error);
         return {
-            storyText: "El Dungeon Master parece confundido por un momento (hubo un error con el servidor). Por favor, intenta tu acción de nuevo.",
+            storyText: "[ERROR] El Dungeon Master parece confundido por un momento (hubo un error con el servidor). Por favor, intenta tu acción de nuevo.",
         };
     }
 };
