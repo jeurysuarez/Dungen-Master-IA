@@ -349,13 +349,13 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
 
 
     return (
-        <main className="min-h-screen bg-slate-950 text-stone-300 font-body p-2 sm:p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-6">
+        <main className="min-h-screen bg-slate-950 text-stone-300 font-body p-2 sm:p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-6 md:h-screen md:overflow-y-hidden">
             {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onSettingsChange={onSettingsChange} />}
             {isMapOpen && gameState.map && <MapModal mapData={gameState.map} onClose={() => setIsMapOpen(false)} />}
             <LootNotification loot={lootToShow} onDismiss={() => setLootToShow([])} />
             
             {/* Left Column: Story & Input */}
-            <div className="flex-1 flex flex-col h-[95vh] md:h-auto">
+            <div className="flex-1 flex flex-col h-[95vh] md:h-full">
                 <div ref={storyLogRef} className="flex-1 bg-slate-900/80 p-4 sm:p-6 rounded-t-lg overflow-y-auto story-scrollbar border-2 border-b-0 border-slate-800">
                     {renderStoryLog(storyLog.slice(0, -1))}
                     <p className={`animate-fadeIn ${isLastError ? 'text-red-400 font-semibold' : ''}`} dangerouslySetInnerHTML={{ __html: typedText.replace(/\n/g, '<br/>') }} />
@@ -376,7 +376,7 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
             </div>
 
             {/* Right Column: Character Stats, Inventory, etc. */}
-            <div className="w-full md:w-1/3 lg:w-1/4">
+            <div className="w-full md:w-1/3 lg:w-1/4 md:h-full md:overflow-y-auto story-scrollbar">
                 {/* Mobile Tab Navigation */}
                 <div className="md:hidden flex justify-around p-1 mb-4 bg-slate-900 rounded-lg border border-slate-700 sticky top-2 z-10">
                     <button onClick={() => setActiveMobileTab('estado')} className={`flex-1 flex flex-col items-center p-2 rounded-md border border-transparent ${activeMobileTab === 'estado' ? 'mobile-tab-active' : ''}`}>
