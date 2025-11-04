@@ -4,7 +4,7 @@ import { sendMessageToDM, generateSpeech } from '../services/geminiService';
 import { useTypingEffect } from '../hooks/useTypingEffect';
 import { decode, decodeAudioData } from '../utils/audioUtils';
 import Tooltip from './Tooltip';
-import { SKILL_ICON_MAP, IconSpinner } from './Icons';
+import { SKILL_ICON_MAP, IconSpinner, IconUsers, IconSparkles, IconTreasureChest } from './Icons';
 import SettingsModal from './SettingsModal';
 import LootNotification from './LootNotification';
 import MapModal from './MapModal';
@@ -36,6 +36,7 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
     const [lootToShow, setLootToShow] = useState<Item[]>([]);
     const [animatedAction, setAnimatedAction] = useState<string | null>(null);
     const [isEnemyHit, setIsEnemyHit] = useState(false);
+    const [activeMobileTab, setActiveMobileTab] = useState('estado');
     
     // Audio state
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -221,6 +222,127 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
         });
     };
 
+    const CharacterPanel = (
+        <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-transparent transition-colors ${character.hp / character.maxHp < 0.25 ? 'animate-pulse-border' : ''}`}>
+            <div className="flex justify-between items-start">
+                <div>
+                    <h2 className="font-title text-2xl text-amber-400">{character.name}</h2>
+                    <p className="text-stone-400">Nivel {character.level} {character.characterClass} {character.race}</p>
+                </div>
+                <div className="flex gap-1">
+                    {gameState.map && (<button onClick={() => setIsMapOpen(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">🗺️</button>)}
+                    <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">⚙️</button>
+                </div>
+            </div>
+            <div className="mt-4 space-y-3">
+                <div>
+                    <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{character.hp} / {character.maxHp}</span></div>
+                    <HealthBar current={character.hp} max={character.maxHp} colorClass="bg-red-500" />
+                </div>
+                {character.maxMp > 0 && (
+                    <div>
+                        <div className="flex justify-between text-sm mb-1"><span>MP</span><span>{character.mp} / {character.maxMp}</span></div>
+                        <HealthBar current={character.mp} max={character.maxMp} colorClass="bg-blue-500" />
+                    </div>
+                )}
+                <div>
+                    <div className="flex justify-between text-sm mb-1"><span>XP</span><span>{character.xp} / {character.xpToNextLevel}</span></div>
+                    <HealthBar current={character.xp} max={character.xpToNextLevel} colorClass="bg-yellow-500" />
+                </div>
+            </div>
+        </div>
+    );
+    
+    const EnemyPanel = enemy && (
+        <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-red-500/30 animate-pulse-border ${isEnemyHit ? 'animate-enemy-hit' : ''}`}>
+            <h3 className="font-title text-xl text-red-400">{enemy.name}</h3>
+            <p className="text-stone-400 text-sm italic mb-2">{enemy.description}</p>
+            <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{enemy.hp} / {enemy.maxHp}</span></div>
+            <HealthBar current={enemy.hp} max={enemy.maxHp} colorClass="bg-red-500" />
+        </div>
+    );
+
+    const PartyPanel = gameState.party.length > 0 && (
+        <div className="bg-slate-800/50 p-4 rounded-lg">
+            <h3 className="font-title text-xl text-amber-400 mb-3">Grupo</h3>
+            <div className="space-y-3">
+                {gameState.party.map(ally => (
+                    <div key={ally.name}>
+                        <p className="font-bold text-stone-300">{ally.name} <span className="text-sm font-normal text-stone-400">({ally.characterClass})</span></p>
+                        <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{ally.hp} / {ally.maxHp}</span></div>
+                        <HealthBar current={ally.hp} max={ally.maxHp} colorClass="bg-green-500" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
+    const InventoryPanel = (
+         <div className="bg-slate-800/50 p-4 rounded-lg">
+            <h3 className="font-title text-xl text-amber-400 mb-2">Inventario</h3>
+            {character.inventory.length > 0 ? (
+                <div className="space-y-1">
+                    {character.inventory.map((item) => (
+                        <Tooltip key={item.name} text={
+                            <div className="text-left">
+                                <h4 className="font-bold text-stone-100">{item.name}</h4>
+                                <p className="text-sm text-stone-300">{item.description}</p>
+                            </div>
+                        }>
+                            <button onClick={() => setInput(`Uso ${item.name}`)} className="flex justify-between w-full p-1 text-left rounded hover:bg-slate-700/50 transition-colors">
+                                <span className="text-stone-300">{item.name}</span>
+                                <span className="text-stone-400 font-mono">x{item.quantity}</span>
+                            </button>
+                        </Tooltip>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-stone-500 italic">Vacío</p>
+            )}
+        </div>
+    );
+
+    const ActionsPanel = (
+         <div className="bg-slate-800/50 p-4 rounded-lg">
+            <h3 className="font-title text-xl text-amber-400 mb-3">Habilidades y Hechizos</h3>
+            <div className="grid grid-cols-3 gap-3">
+                 {character.skills.map((skill) => {
+                    const IconComponent = SKILL_ICON_MAP[skill.iconName];
+                    const isAnimating = animatedAction === skill.name;
+                    return (
+                        <Tooltip key={skill.name} text={
+                            <div className="text-left">
+                                <h4 className="font-bold text-stone-100">{skill.name}</h4>
+                                <p className="text-sm text-stone-300">{skill.description}</p>
+                            </div>
+                        }>
+                            <button onClick={() => handleAbilityClick(skill, 'skill')} disabled={isLoading} className={`relative p-4 rounded-lg border-2 border-slate-700 hover:bg-slate-700/50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isAnimating ? 'animate-skill-cast' : ''}`}>
+                                {IconComponent && <IconComponent className="w-8 h-8 text-stone-300" />}
+                            </button>
+                        </Tooltip>
+                    );
+                })}
+                {character.spells.map((spell) => {
+                    const hasEnoughMana = character.mp >= spell.cost;
+                    const isAnimating = animatedAction === spell.name;
+                    return (
+                        <Tooltip key={spell.name} text={
+                            <div className="text-left">
+                                <h4 className="font-bold text-stone-100">{spell.name} ({spell.cost} MP)</h4>
+                                <p className="text-sm text-stone-300">{spell.description}</p>
+                            </div>
+                        }>
+                            <button onClick={() => handleAbilityClick(spell, 'spell')} disabled={isLoading || !hasEnoughMana} className={`relative p-4 rounded-lg border-2 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isAnimating ? 'animate-skill-cast' : ''} ${hasEnoughMana ? 'border-purple-700 hover:bg-purple-900/50' : 'border-slate-700'}`}>
+                                <span className={`text-3xl font-bold ${hasEnoughMana ? 'text-purple-400' : 'text-slate-500'}`}>✨</span>
+                            </button>
+                        </Tooltip>
+                    );
+                })}
+            </div>
+        </div>
+    );
+
+
     return (
         <main className="min-h-screen bg-slate-950 text-stone-300 font-body p-2 sm:p-4 md:p-6 lg:p-8 flex flex-col md:flex-row gap-6">
             {isSettingsOpen && <SettingsModal settings={settings} onClose={() => setIsSettingsOpen(false)} onSettingsChange={onSettingsChange} />}
@@ -249,126 +371,52 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
             </div>
 
             {/* Right Column: Character Stats, Inventory, etc. */}
-            <div className="w-full md:w-1/3 lg:w-1/4 space-y-4">
-                 {/* Character Info */}
-                <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-transparent transition-colors ${character.hp / character.maxHp < 0.25 ? 'animate-pulse-border' : ''}`}>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h2 className="font-title text-2xl text-amber-400">{character.name}</h2>
-                            <p className="text-stone-400">Nivel {character.level} {character.characterClass} {character.race}</p>
-                        </div>
-                        <div className="flex gap-1">
-                            {gameState.map && (<button onClick={() => setIsMapOpen(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">🗺️</button>)}
-                            <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-slate-700/50 transition-colors">⚙️</button>
-                        </div>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                        <div>
-                            <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{character.hp} / {character.maxHp}</span></div>
-                            <HealthBar current={character.hp} max={character.maxHp} colorClass="bg-red-500" />
-                        </div>
-                        {character.maxMp > 0 && (
-                            <div>
-                                <div className="flex justify-between text-sm mb-1"><span>MP</span><span>{character.mp} / {character.maxMp}</span></div>
-                                <HealthBar current={character.mp} max={character.maxMp} colorClass="bg-blue-500" />
-                            </div>
-                        )}
-                        <div>
-                            <div className="flex justify-between text-sm mb-1"><span>XP</span><span>{character.xp} / {character.xpToNextLevel}</span></div>
-                            <HealthBar current={character.xp} max={character.xpToNextLevel} colorClass="bg-yellow-500" />
-                        </div>
-                    </div>
+            <div className="w-full md:w-1/3 lg:w-1/4">
+                {/* Mobile Tab Navigation */}
+                <div className="md:hidden flex justify-around p-1 mb-4 bg-slate-900 rounded-lg border border-slate-700 sticky top-2 z-10">
+                    <button onClick={() => setActiveMobileTab('estado')} className={`flex-1 flex flex-col items-center p-2 rounded-md border border-transparent ${activeMobileTab === 'estado' ? 'mobile-tab-active' : ''}`}>
+                        <IconUsers className="w-6 h-6 mb-1"/>
+                        <span className="text-xs">Estado</span>
+                    </button>
+                    <button onClick={() => setActiveMobileTab('acciones')} className={`flex-1 flex flex-col items-center p-2 rounded-md border border-transparent ${activeMobileTab === 'acciones' ? 'mobile-tab-active' : ''}`}>
+                        <IconSparkles className="w-6 h-6 mb-1"/>
+                        <span className="text-xs">Acciones</span>
+                    </button>
+                     <button onClick={() => setActiveMobileTab('inventario')} className={`flex-1 flex flex-col items-center p-2 rounded-md border border-transparent ${activeMobileTab === 'inventario' ? 'mobile-tab-active' : ''}`}>
+                        <IconTreasureChest className="w-6 h-6 mb-1"/>
+                        <span className="text-xs">Inventario</span>
+                    </button>
+                </div>
+                
+                {/* Desktop View */}
+                <div className="hidden md:flex flex-col space-y-4">
+                    {CharacterPanel}
+                    {EnemyPanel}
+                    {PartyPanel}
+                    {InventoryPanel}
+                    {ActionsPanel}
                 </div>
 
-                {/* Enemy Info */}
-                {enemy && (
-                    <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-red-500/30 animate-pulse-border ${isEnemyHit ? 'animate-enemy-hit' : ''}`}>
-                        <h3 className="font-title text-xl text-red-400">{enemy.name}</h3>
-                        <p className="text-stone-400 text-sm italic mb-2">{enemy.description}</p>
-                        <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{enemy.hp} / {enemy.maxHp}</span></div>
-                        <HealthBar current={enemy.hp} max={enemy.maxHp} colorClass="bg-red-500" />
-                    </div>
-                )}
-                
-                {/* Party Info */}
-                {gameState.party.length > 0 && (
-                    <div className="bg-slate-800/50 p-4 rounded-lg">
-                        <h3 className="font-title text-xl text-amber-400 mb-3">Grupo</h3>
-                        <div className="space-y-3">
-                            {gameState.party.map(ally => (
-                                <div key={ally.name}>
-                                    <p className="font-bold text-stone-300">{ally.name} <span className="text-sm font-normal text-stone-400">({ally.characterClass})</span></p>
-                                    <div className="flex justify-between text-sm mb-1"><span>HP</span><span>{ally.hp} / {ally.maxHp}</span></div>
-                                    <HealthBar current={ally.hp} max={ally.maxHp} colorClass="bg-green-500" />
-                                </div>
-                            ))}
+                {/* Mobile View */}
+                <div className="md:hidden space-y-4">
+                    {activeMobileTab === 'estado' && (
+                        <div className="animate-fadeIn space-y-4">
+                            {CharacterPanel}
+                            {EnemyPanel}
+                            {PartyPanel}
                         </div>
-                    </div>
-                )}
-
-                {/* Inventory */}
-                <div className="bg-slate-800/50 p-4 rounded-lg">
-                    <h3 className="font-title text-xl text-amber-400 mb-2">Inventario</h3>
-                    {character.inventory.length > 0 ? (
-                        <div className="space-y-1">
-                            {character.inventory.map((item) => (
-                                <Tooltip key={item.name} text={
-                                    <div className="text-left">
-                                        <h4 className="font-bold text-stone-100">{item.name}</h4>
-                                        <p className="text-sm text-stone-300">{item.description}</p>
-                                    </div>
-                                }>
-                                    <button onClick={() => setInput(`Uso ${item.name}`)} className="flex justify-between w-full p-1 text-left rounded hover:bg-slate-700/50 transition-colors">
-                                        <span className="text-stone-300">{item.name}</span>
-                                        <span className="text-stone-400 font-mono">x{item.quantity}</span>
-                                    </button>
-                                </Tooltip>
-                            ))}
+                    )}
+                     {activeMobileTab === 'acciones' && (
+                        <div className="animate-fadeIn">
+                            {ActionsPanel}
                         </div>
-                    ) : (
-                        <p className="text-stone-500 italic">Vacío</p>
+                    )}
+                    {activeMobileTab === 'inventario' && (
+                        <div className="animate-fadeIn">
+                            {InventoryPanel}
+                        </div>
                     )}
                 </div>
-
-                {/* Skills & Spells */}
-                <div className="bg-slate-800/50 p-4 rounded-lg">
-                    <h3 className="font-title text-xl text-amber-400 mb-3">Habilidades y Hechizos</h3>
-                    <div className="grid grid-cols-3 gap-2">
-                         {character.skills.map((skill) => {
-                            const IconComponent = SKILL_ICON_MAP[skill.iconName];
-                            const isAnimating = animatedAction === skill.name;
-                            return (
-                                <Tooltip key={skill.name} text={
-                                    <div className="text-left">
-                                        <h4 className="font-bold text-stone-100">{skill.name}</h4>
-                                        <p className="text-sm text-stone-300">{skill.description}</p>
-                                    </div>
-                                }>
-                                    <button onClick={() => handleAbilityClick(skill, 'skill')} disabled={isLoading} className={`relative p-3 rounded-lg border-2 border-slate-700 hover:bg-slate-700/50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isAnimating ? 'animate-skill-cast' : ''}`}>
-                                        {IconComponent && <IconComponent className="w-8 h-8 text-stone-300" />}
-                                    </button>
-                                </Tooltip>
-                            );
-                        })}
-                        {character.spells.map((spell) => {
-                            const hasEnoughMana = character.mp >= spell.cost;
-                            const isAnimating = animatedAction === spell.name;
-                            return (
-                                <Tooltip key={spell.name} text={
-                                    <div className="text-left">
-                                        <h4 className="font-bold text-stone-100">{spell.name} ({spell.cost} MP)</h4>
-                                        <p className="text-sm text-stone-300">{spell.description}</p>
-                                    </div>
-                                }>
-                                    <button onClick={() => handleAbilityClick(spell, 'spell')} disabled={isLoading || !hasEnoughMana} className={`relative p-3 rounded-lg border-2 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isAnimating ? 'animate-skill-cast' : ''} ${hasEnoughMana ? 'border-purple-700 hover:bg-purple-900/50' : 'border-slate-700'}`}>
-                                        <span className={`text-3xl font-bold ${hasEnoughMana ? 'text-purple-400' : 'text-slate-500'}`}>✨</span>
-                                    </button>
-                                </Tooltip>
-                            );
-                        })}
-                    </div>
-                </div>
-
             </div>
         </main>
     );
