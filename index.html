@@ -71,6 +71,23 @@
         pointer-events: none;
         z-index: 10;
       }
+      .particle-burst::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(192, 132, 252, 0.5) 0%, rgba(192, 132, 252, 0) 70%);
+        border-radius: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        animation: aura-glow 1s ease-out forwards;
+      }
+      @keyframes aura-glow {
+          0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+          50% { opacity: 1; }
+          100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+      }
       .particle {
         position: absolute;
         width: 8px;
@@ -90,6 +107,16 @@
           opacity: 0;
         }
       }
+      /* Item Action Menu */
+      .item-action-menu {
+        @apply bg-slate-900/70 p-2 rounded-md mt-1 flex flex-wrap justify-center gap-2 animate-fadeIn;
+      }
+      .item-action-button {
+        @apply px-3 py-1 bg-slate-700 text-stone-300 text-sm rounded-md hover:bg-purple-700 transition-colors;
+      }
+      .item-action-cancel-button {
+        @apply px-3 py-1 bg-rose-800 text-stone-200 text-sm rounded-md hover:bg-rose-700 transition-colors;
+      }
       /* Dynamic Ambiance Classes */
       .ambience-cave { @apply bg-slate-800; }
       .ambience-forest { @apply bg-cyan-950; }
@@ -98,6 +125,33 @@
       
       .mobile-tab-active {
         @apply bg-purple-700 text-stone-100 border-purple-500;
+      }
+      
+      /* Screen Shake */
+      .animate-screen-shake {
+        animation: screen-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+      }
+      @keyframes screen-shake {
+        10%, 90% { transform: translate3d(-1px, 0, 0); }
+        20%, 80% { transform: translate3d(2px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        40%, 60% { transform: translate3d(4px, 0, 0); }
+      }
+
+      /* Healing Aura */
+      .animate-healing-aura {
+        animation: healing-aura-glow 1s ease-out forwards;
+      }
+      @keyframes healing-aura-glow {
+        0% {
+          box-shadow: 0 0 0px 0px rgba(34, 197, 94, 0); /* green-500 */
+        }
+        50% {
+          box-shadow: 0 0 20px 5px rgba(34, 197, 94, 0.7);
+        }
+        100% {
+          box-shadow: 0 0 0px 0px rgba(34, 197, 94, 0);
+        }
       }
     }
   </style>
