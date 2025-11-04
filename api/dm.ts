@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         const response = await ai.models.generateContent({
             model: "gemini-2.5-pro", // Using a more powerful model for complex state management
-            contents: [{ parts: [{ text: prompt }] }],
+            contents: prompt,
             config: {
                 // System Instruction to guide the model's behavior
                 systemInstruction: `
