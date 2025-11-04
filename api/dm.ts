@@ -1,8 +1,8 @@
 // Fix: Implemented the serverless API route for the Dungeon Master AI.
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Character, Ally, Enemy, Race, CharacterClass, Spell, Skill } from '../types.ts';
-import { DM_SYSTEM_PROMPT } from '../prompts.ts';
+import { Character, Ally, Enemy, Race, CharacterClass, Spell, Skill } from '../types.js';
+import { DM_SYSTEM_PROMPT } from '../prompts.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
