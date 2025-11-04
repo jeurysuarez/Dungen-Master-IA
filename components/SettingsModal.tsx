@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 // Fix: Corrected import paths for types and icons.
 import { Settings } from '../types';
 import { IconSoundOn, IconSoundOff } from './Icons';
@@ -10,12 +10,36 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onSettingsChange }) => {
+    const [apiStatus, setApiStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
+    const [isChecking, setIsChecking] = useState(false);
+
+    const checkApiStatus = async () => {
+        setIsChecking(true);
+        setApiStatus('checking');
+        try {
+            const response = await fetch('/api/health');
+            if (response.ok) {
+                setApiStatus('ok');
+            } else {
+                setApiStatus('error');
+            }
+        } catch (error) {
+            console.error("API health check failed:", error);
+            setApiStatus('error');
+        } finally {
+            setIsChecking(false);
+        }
+    };
+    
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 onClose();
             }
         };
+        // Check API status when the modal is opened
+        checkApiStatus();
+
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
@@ -71,6 +95,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onSett
                             onChange={(e) => onSettingsChange({ textSpeed: parseInt(e.target.value, 10) })}
                             className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
                         />
+                    </div>
+
+                    {/* API Status */}
+                    <div>
+                        <label className="block text-lg font-semibold mb-2 text-stone-300">Estado de la API</label>
+                        <div className="flex items-center justify-between bg-slate-800/50 p-3 rounded-lg">
+                            <div className="flex items-center gap-3">
+                                {apiStatus === 'ok' && <span className="w-3 h-3 bg-green-500 rounded-full"></span>}
+                                {apiStatus === 'error' && <span className="w-3 h-3 bg-red-500 rounded-full"></span>}
+                                {(apiStatus === 'checking' || apiStatus === 'idle') && <span className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></span>}
+                                <span className="text-stone-300">
+                                    {apiStatus === 'idle' && 'Listo para verificar'}
+                                    {apiStatus === 'checking' && 'Verificando...'}
+                                    {apiStatus === 'ok' && 'Conexión Establecida'}
+                                    {apiStatus === 'error' && 'Servicio No Disponible'}
+                                </span>
+                            </div>
+                            <button 
+                                onClick={checkApiStatus} 
+                                disabled={isChecking}
+                                className="px-4 py-1 bg-slate-700 text-stone-200 font-bold rounded-lg hover:bg-slate-600 disabled:bg-slate-800 disabled:cursor-not-allowed disabled:text-stone-500 transition-colors"
+                            >
+                                {isChecking ? '...' : 'Revisar'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

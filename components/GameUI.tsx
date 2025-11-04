@@ -9,6 +9,7 @@ import SettingsModal from './SettingsModal';
 import LootNotification from './LootNotification';
 import MapModal from './MapModal';
 import * as audioService from '../services/audioService';
+import PlayerCastEffect from './PlayerCastEffect';
 
 
 interface GameUIProps {
@@ -37,6 +38,7 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
     const [animatedAction, setAnimatedAction] = useState<string | null>(null);
     const [isEnemyHit, setIsEnemyHit] = useState(false);
     const [activeMobileTab, setActiveMobileTab] = useState('estado');
+    const [isCastingSpell, setIsCastingSpell] = useState(false);
     
     // Audio state
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -194,6 +196,8 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
         if (type === 'spell' && 'cost' in ability) {
             if (character.mp < ability.cost) return;
             audioService.playSpell();
+            setIsCastingSpell(true);
+            setTimeout(() => setIsCastingSpell(false), 1000); // Duration matches animation
         } else {
             audioService.playAttack();
         }
@@ -223,7 +227,8 @@ const GameUI: React.FC<GameUIProps> = ({ gameState, setGameState, settings, onSe
     };
 
     const CharacterPanel = (
-        <div className={`bg-slate-800/50 p-4 rounded-lg border-2 border-transparent transition-colors ${character.hp / character.maxHp < 0.25 ? 'animate-pulse-border' : ''}`}>
+        <div className={`relative bg-slate-800/50 p-4 rounded-lg border-2 border-transparent transition-colors ${character.hp / character.maxHp < 0.25 ? 'animate-pulse-border' : ''}`}>
+            <PlayerCastEffect isActive={isCastingSpell} />
             <div className="flex justify-between items-start">
                 <div>
                     <h2 className="font-title text-2xl text-amber-400">{character.name}</h2>
