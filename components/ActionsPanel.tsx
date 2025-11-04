@@ -11,17 +11,27 @@ interface ActionsPanelProps {
     isLoading: boolean;
 }
 
-const ABILITY_EFFECT_MAP: Record<string, 'powerful-strike' | 'frostbolt' | 'sneak-attack' | 'healing-light'> = {
+const ABILITY_EFFECT_MAP: Record<string, 'powerful-strike' | 'frostbolt' | 'sneak-attack' | 'healing-light' | 'perception' | 'diplomacy' | 'nature-affinity' | 'arcane-knowledge' | 'stonecunning' | 'battle-forging' | 'intimidation' | 'survivalist'> = {
+  // Class Skills
   "Ataque Poderoso": "powerful-strike",
   "Rayo de Escarcha": "frostbolt",
   "Ataque Furtivo": "sneak-attack",
   "Curar Heridas Leves": "healing-light",
+  // Racial/Passive Skills
+  "Percepción Aguda": "perception",
+  "Diplomacia": "diplomacy",
+  "Afinidad Natural": "nature-affinity",
+  "Conocimiento Arcano": "arcane-knowledge",
+  "Saber de Piedra": "stonecunning",
+  "Forja de Batalla": "battle-forging",
+  "Intimidación": "intimidation",
+  "Superviviente": "survivalist",
 };
 
 const ActionsPanel: React.FC<ActionsPanelProps> = ({ setPlayerInput, isLoading }) => {
     const { gameState } = useGame();
     const { character } = gameState!;
-    const [activeEffect, setActiveEffect] = useState<{ name: string; type: 'powerful-strike' | 'frostbolt' | 'sneak-attack' | 'healing-light' } | null>(null);
+    const [activeEffect, setActiveEffect] = useState<{ name: string; type: any } | null>(null);
 
     const handleAbilityClick = (ability: Skill | Spell, type: 'skill' | 'spell') => {
         if (isLoading || activeEffect) return;

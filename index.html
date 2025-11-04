@@ -154,7 +154,7 @@
         }
       }
 
-      /* --- START OF NEW ABILITY EFFECTS --- */
+      /* --- START OF ABILITY EFFECTS --- */
       .ability-effect-container {
         position: absolute;
         inset: 0;
@@ -229,7 +229,136 @@
         50% { opacity: 1; }
         100% { transform: scale(1.5); opacity: 0; }
       }
-      /* --- END OF NEW ABILITY EFFECTS --- */
+
+      /* Percepción Aguda */
+      .effect-perception::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 2px solid #a5f3fc; /* cyan-200 */
+        opacity: 0;
+        animation: perception-ping 0.8s ease-out forwards;
+      }
+      @keyframes perception-ping {
+        0% { transform: scale(0.5); opacity: 1; }
+        100% { transform: scale(1.5); opacity: 0; }
+      }
+
+      /* Diplomacia */
+      .effect-diplomacy::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(circle, rgba(250, 204, 21, 0.5) 0%, rgba(250, 204, 21, 0) 70%); /* amber-400 */
+        animation: diplomacy-glow 1s ease-in-out forwards;
+      }
+       @keyframes diplomacy-glow {
+        0%, 100% { opacity: 0; transform: scale(0.8); }
+        50% { opacity: 1; transform: scale(1); }
+      }
+
+      /* Afinidad Natural */
+      .effect-nature-affinity .leaf {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 12px;
+        height: 12px;
+        background-color: #4ade80; /* green-400 */
+        clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        animation: nature-spin 1s ease-out forwards;
+      }
+       @keyframes nature-spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg) scale(0); opacity: 0; }
+        50% { opacity: 1; }
+        100% { transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) rotate(360deg) scale(1.2); opacity: 0; }
+      }
+
+      /* Conocimiento Arcano */
+      .effect-arcane-knowledge .rune {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        font-size: 1.2rem;
+        color: #c084fc; /* purple-400 */
+        text-shadow: 0 0 8px #e9d5ff; /* purple-200 */
+        opacity: 0;
+        animation: arcane-fade 1.2s ease-out forwards;
+      }
+      @keyframes arcane-fade {
+        0% { transform: translate(-50%, -50%) translateY(0) scale(0.5); opacity: 0; }
+        20%, 80% { opacity: 1; }
+        100% { transform: translate(-50%, -50%) translateY(-30px) scale(1); opacity: 0; }
+      }
+
+      /* Saber de Piedra */
+      .effect-stonecunning::before, .effect-stonecunning::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: #fde047; /* yellow-300 */
+        animation: stone-crack 0.6s ease-in-out forwards;
+      }
+      .effect-stonecunning::before {
+        clip-path: polygon(0 0, 100% 0, 100% 45%, 55% 45%, 50% 50%, 45% 55%, 0 55%);
+      }
+      .effect-stonecunning::after {
+        clip-path: polygon(0 60%, 45% 60%, 50% 55%, 55% 50%, 100% 50%, 100% 100%, 0 100%);
+      }
+      @keyframes stone-crack {
+        0% { transform: translate(0, 0); opacity: 1; }
+        100% { transform: translate(var(--x, 0), var(--y, 0)); opacity: 0; }
+      }
+
+      /* Forja de Batalla */
+      .effect-battle-forging .spark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 4px;
+        height: 10px;
+        background-color: #fb923c; /* orange-400 */
+        box-shadow: 0 0 8px #fdba74; /* orange-300 */
+        animation: forge-spark 0.7s ease-out forwards;
+      }
+      @keyframes forge-spark {
+        0% { transform: translate(-50%, -50%) rotate(var(--angle)) scaleY(1); opacity: 1; }
+        100% { transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) rotate(var(--angle)) scaleY(0); opacity: 0; }
+      }
+
+      /* Intimidación */
+      .effect-intimidation::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(circle, rgba(220, 38, 38, 0.6) 0%, rgba(220, 38, 38, 0) 70%); /* red-600 */
+        animation: intimidation-pulse 0.8s ease-in-out forwards;
+      }
+      @keyframes intimidation-pulse {
+        0%, 100% { transform: scale(0.5); opacity: 0; }
+        50% { transform: scale(1); opacity: 1; }
+      }
+
+      /* Superviviente */
+      .effect-survivalist::before {
+        content: '▲';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        font-size: 2rem;
+        color: #a5f3fc; /* cyan-200 */
+        transform-origin: center center;
+        transform: translate(-50%, -50%);
+        animation: survival-spin 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+      }
+       @keyframes survival-spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(1080deg); }
+      }
+      /* --- END OF ABILITY EFFECTS --- */
     }
   </style>
   <script>
